@@ -19,7 +19,25 @@ export default async function handler(req, res) {
   }
 
   if (req.method === 'POST') {
-    const { username, avatar_url, high_score, highest_streak } = req.body;
+    const { username, avatar_url, action, game_score, game_streak } = req.body;
+
+    if (action === 'submit_game') {
+      const { data: existingProfile } = await supabase.from('profiles').select('high_score, highest_streak').eq('id', user.id).single();
+      
+      const currentHighScore = existingProfile?.high_score || 0;
+      const currentMaxStreak = existingProfile?.highest_streak || 0;
+
+      const updates = {
+        id: user.id,
+        high_score: Math.max(currentHighScore, Number(game_score) || 0),
+        highest_streak: Math.max(currentMaxStreak, Number(game_streak) || 0),
+        updated_at: new Date().toISOString()
+      };
+
+      const { data, error } = await supabase.from('profiles').upsert(updates).select().single();
+      if (error) return res.status(400).json({ error: error.message });
+      return res.status(200).json({ success: true, profile: data });
+    }
 
     const updates = {
       id: user.id,
@@ -28,8 +46,6 @@ export default async function handler(req, res) {
 
     if (username !== undefined) updates.username = username;
     if (avatar_url !== undefined) updates.avatar_url = avatar_url;
-    if (high_score !== undefined) updates.high_score = high_score;
-    if (highest_streak !== undefined) updates.highest_streak = highest_streak;
 
     const { data, error } = await supabase.from('profiles').upsert(updates).select().single();
     if (error) return res.status(400).json({ error: error.message });
