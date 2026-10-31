@@ -186,8 +186,19 @@
                     </div>
                 </div>
 
+                <div class="grid grid-cols-2 gap-2 bg-slate-900/80 p-3 rounded-2xl border border-white/10 text-center">
+                    <div>
+                        <div class="text-[10px] text-slate-400 uppercase font-bold">Record High Score</div>
+                        <div id="display-recorded-highscore" class="text-lg font-black text-amber-300">0</div>
+                    </div>
+                    <div>
+                        <div class="text-[10px] text-slate-400 uppercase font-bold">Record Max Streak</div>
+                        <div id="display-recorded-maxstreak" class="text-lg font-black text-orange-400">0</div>
+                    </div>
+                </div>
+
                 <form id="profile-edit-form" class="flex flex-col gap-3 bg-slate-900/50 p-4 rounded-2xl border border-white/10">
-                    <span class="text-xs font-bold text-slate-300 uppercase tracking-wider border-b border-white/10 pb-1">Edit Editable Profile</span>
+                    <span class="text-xs font-bold text-slate-300 uppercase tracking-wider border-b border-white/10 pb-1">Edit Account Profile</span>
                     <div>
                         <label class="text-[11px] text-slate-400 font-semibold">Avatar Image URL</label>
                         <input id="edit-avatar-url" type="url" placeholder="https://example.com/avatar.png" class="w-full px-3 py-2 rounded-xl bg-slate-900/90 border border-white/15 text-xs text-white outline-none focus:border-cyan-400 mt-1">
@@ -195,16 +206,6 @@
                     <div>
                         <label class="text-[11px] text-slate-400 font-semibold">Username</label>
                         <input id="edit-username" type="text" placeholder="Username" class="w-full px-3 py-2 rounded-xl bg-slate-900/90 border border-white/15 text-xs text-white outline-none focus:border-cyan-400 mt-1">
-                    </div>
-                    <div class="grid grid-cols-2 gap-2">
-                        <div>
-                            <label class="text-[11px] text-slate-400 font-semibold">High Score</label>
-                            <input id="edit-highscore" type="number" class="w-full px-3 py-2 rounded-xl bg-slate-900/90 border border-white/15 text-xs text-amber-300 font-black outline-none focus:border-cyan-400 mt-1">
-                        </div>
-                        <div>
-                            <label class="text-[11px] text-slate-400 font-semibold">Max Streak</label>
-                            <input id="edit-maxstreak" type="number" class="w-full px-3 py-2 rounded-xl bg-slate-900/90 border border-white/15 text-xs text-orange-400 font-black outline-none focus:border-cyan-400 mt-1">
-                        </div>
                     </div>
                     <button type="submit" class="w-full py-2.5 rounded-xl bg-cyan-500/30 hover:bg-cyan-500/50 border border-cyan-400/50 font-black text-xs uppercase tracking-wider text-cyan-300 transition mt-1">SAVE CHANGES</button>
                 </form>
@@ -595,7 +596,6 @@
             if (score > highScore) {
                 highScore = score;
                 localStorage.setItem('block_blast_highscore', highScore.toString());
-                syncProfileData({ high_score: highScore });
             }
 
             highScoreDisplay.textContent = highScore.toLocaleString();
@@ -637,10 +637,36 @@
                 badge.classList.add('hidden');
             }
 
+            syncGameOverStats(score, maxStreak);
+
             gameOverModal.classList.remove('opacity-0', 'pointer-events-none');
             const content = document.getElementById('game-over-content');
             content.classList.remove('scale-90');
             content.classList.add('scale-100');
+        }
+
+        async function syncGameOverStats(finalScore, gameMaxStreak) {
+            if (!authToken) return;
+            try {
+                const res = await fetch('/api/user', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${authToken}`
+                    },
+                    body: JSON.stringify({
+                        action: 'submit_game',
+                        game_score: finalScore,
+                        game_streak: gameMaxStreak
+                    })
+                });
+                const json = await res.json();
+                if (json.success) {
+                    userProfile = { ...userProfile, ...json.profile };
+                    localStorage.setItem('blast_block_profile', JSON.stringify(userProfile));
+                    updateUIState();
+                }
+            } catch (err) {}
         }
 
         function initDragControls() {
@@ -834,11 +860,12 @@
         const detailEmailDisplay = document.getElementById('detail-email-display');
         const detailLastLogin = document.getElementById('detail-last-login');
         
+        const displayRecordedHighscore = document.getElementById('display-recorded-highscore');
+        const displayRecordedMaxstreak = document.getElementById('display-recorded-maxstreak');
+
         const profileEditForm = document.getElementById('profile-edit-form');
         const editAvatarUrl = document.getElementById('edit-avatar-url');
         const editUsername = document.getElementById('edit-username');
-        const editHighscore = document.getElementById('edit-highscore');
-        const editMaxstreak = document.getElementById('edit-maxstreak');
         const btnLogout = document.getElementById('btn-logout');
 
         function updateUIState() {
@@ -862,10 +889,11 @@
                 detailEmailDisplay.textContent = userProfile.email || 'Account Logged In';
                 detailLastLogin.textContent = userProfile.last_login ? new Date(userProfile.last_login).toLocaleString() : 'Just now';
 
+                displayRecordedHighscore.textContent = (userProfile.high_score || 0).toLocaleString();
+                displayRecordedMaxstreak.textContent = (userProfile.highest_streak || 0).toLocaleString();
+
                 editAvatarUrl.value = userProfile.avatar_url || '';
                 editUsername.value = userProfile.username || '';
-                editHighscore.value = userProfile.high_score || highScore;
-                editMaxstreak.value = userProfile.highest_streak || maxStreak;
 
                 authLoggedOutView.classList.add('hidden');
                 authLoggedInView.classList.remove('hidden');
@@ -990,21 +1018,10 @@
             authMsg.textContent = 'Saving updates...';
             authMsg.className = 'text-xs text-center min-h-[1rem] text-cyan-300';
 
-            const newHighScore = parseInt(editHighscore.value, 10) || 0;
-            const newMaxStreak = parseInt(editMaxstreak.value, 10) || 0;
-
             await syncProfileData({
                 avatar_url: editAvatarUrl.value.trim(),
-                username: editUsername.value.trim(),
-                high_score: newHighScore,
-                highest_streak: newMaxStreak
+                username: editUsername.value.trim()
             });
-
-            if (newHighScore > highScore) {
-                highScore = newHighScore;
-                localStorage.setItem('block_blast_highscore', highScore.toString());
-                updateScoreDisplays();
-            }
 
             authMsg.textContent = 'Profile updated successfully!';
             authMsg.className = 'text-xs text-center min-h-[1rem] text-green-400';
