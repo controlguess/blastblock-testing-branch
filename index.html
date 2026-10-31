@@ -1,0 +1,1258 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Blast Block</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: manipulation;
+            background: radial-gradient(circle at center, #1b2559 0%, #090d20 100%);
+        }
+        .block-cell {
+            border-radius: 2px;
+            box-shadow: inset 2px 2px 0px rgba(255, 255, 255, 0.45), inset -2px -2px 0px rgba(0, 0, 0, 0.4), 0 2px 4px rgba(0,0,0,0.3);
+            transition: transform 0.1s ease, opacity 0.15s ease;
+        }
+        .color-cyan { background: linear-gradient(135deg, #00f2fe 0%, #4facfe 100%); }
+        .color-orange { background: linear-gradient(135deg, #ff930f 0%, #fff966 100%); }
+        .color-yellow { background: linear-gradient(135deg, #ffe000 0%, #799f0c 100%); }
+        .color-green { background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); }
+        .color-red { background: linear-gradient(135deg, #ff0844 0%, #ffb199 100%); }
+        .color-purple { background: linear-gradient(135deg, #b224ef 0%, #7579ff 100%); }
+        .color-blue { background: linear-gradient(135deg, #00c6ff 0%, #0072ff 100%); }
+        .grid-slot { background-color: rgba(14, 23, 47, 0.75); border: 1px solid rgba(255, 255, 255, 0.07); border-radius: 3px; }
+        .grid-slot-highlight { background-color: rgba(255, 255, 255, 0.35) !important; border: 2px solid rgba(255, 255, 255, 0.8) !important; box-shadow: 0 0 12px rgba(255, 255, 255, 0.5); }
+        #drag-ghost { position: fixed; pointer-events: none; z-index: 100; display: none; transform: translate(-50%, -50%) scale(1.05); filter: drop-shadow(0 15px 30px rgba(0, 0, 0, 0.6)); }
+        .combo-glow { text-shadow: 0 0 20px rgba(0, 242, 254, 0.9), 0 0 40px rgba(178, 36, 239, 0.9), 0 0 60px rgba(255, 224, 0, 0.9); }
+        #particle-canvas { position: absolute; inset: 0; pointer-events: none; z-index: 25; }
+        .glass-panel { background: rgba(255, 255, 255, 0.04); backdrop-filter: blur(16px); border: 1px solid rgba(255, 255, 255, 0.12); box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37); }
+    </style>
+</head>
+<body class="h-screen w-screen overflow-hidden text-white flex justify-center items-center">
+
+    <div class="fixed top-1.5 right-14 lg:top-4 lg:right-16 z-[60] flex items-center gap-2">
+        <button id="btn-account" title="Account" class="h-8 lg:h-11 px-3 rounded-xl glass-panel flex items-center gap-2 text-cyan-300 hover:text-white active:scale-95 transition text-xs lg:text-sm font-bold">
+            <div id="account-avatar-container" class="w-6 h-6 rounded-full bg-cyan-500/30 flex items-center justify-center overflow-hidden border border-white/20">
+                <i id="account-icon-fallback" class="fa-solid fa-user text-xs"></i>
+                <img id="account-avatar-img" class="w-full h-full object-cover hidden" alt="Avatar">
+            </div>
+            <span id="account-btn-label">Account</span>
+        </button>
+    </div>
+
+    <div class="w-full h-full max-w-7xl flex flex-col lg:flex-row items-center justify-between p-4 lg:p-8 gap-6">
+        <div class="hidden lg:flex flex-col w-72 h-full justify-between gap-4">
+            <div class="glass-panel p-6 rounded-3xl flex flex-col items-center justify-center text-center">
+                <div class="flex items-center gap-3 mb-2">
+                    <div class="w-10 h-10 rounded-md color-cyan flex items-center justify-center shadow-lg border border-white/40"><i class="fa-solid fa-cubes text-xl text-white drop-shadow"></i></div>
+                    <h1 class="text-3xl font-black tracking-wider bg-clip-text text-transparent bg-gradient-to-r from-cyan-400 via-yellow-300 to-pink-500">BLAST BLOCK</h1>
+                </div>
+                <p class="text-xs text-cyan-300/80 font-bold tracking-widest uppercase">Early Access</p>
+            </div>
+
+            <div class="glass-panel p-6 rounded-3xl flex flex-col gap-4">
+                <div class="flex justify-between items-center border-b border-white/10 pb-3">
+                    <span class="text-slate-300 text-sm font-semibold flex items-center gap-2"><i class="fa-solid fa-fire text-amber-400"></i> Max Streak</span>
+                    <span id="stat-max-streak" class="text-2xl font-black text-amber-300">0</span>
+                </div>
+                <div class="flex justify-between items-center border-b border-white/10 pb-3">
+                    <span class="text-slate-300 text-sm font-semibold flex items-center gap-2"><i class="fa-solid fa-bolt text-cyan-400"></i> Lines Cleared</span>
+                    <span id="stat-lines-cleared" class="text-2xl font-black text-cyan-300">0</span>
+                </div>
+                <div class="flex justify-between items-center">
+                    <span class="text-slate-300 text-sm font-semibold flex items-center gap-2"><i class="fa-solid fa-cubes-stacked text-purple-400"></i> Blocks Placed</span>
+                    <span id="stat-blocks-placed" class="text-2xl font-black text-purple-300">0</span>
+                </div>
+            </div>
+
+            <div class="glass-panel p-5 rounded-3xl flex items-center justify-between">
+                <span class="text-sm font-bold text-slate-200 flex items-center gap-2"><i class="fa-solid fa-volume-high text-indigo-400"></i> Sound FX</span>
+                <button id="btn-sound-toggle" class="w-12 h-6 bg-indigo-600 rounded-full p-1 flex items-center transition-colors">
+                    <div id="sound-toggle-dot" class="w-4 h-4 bg-white rounded-full translate-x-6 transition-transform shadow"></div>
+                </button>
+            </div>
+        </div>
+
+        <div class="flex-1 h-full flex flex-col items-center justify-between max-w-md lg:max-w-lg w-full py-2 lg:py-4">
+            <div class="w-full flex items-center justify-between px-6 py-3 glass-panel rounded-3xl border border-white/15">
+                <div class="flex flex-col items-start">
+                    <span class="text-xs font-black text-amber-400/90 uppercase tracking-widest flex items-center gap-1"><i class="fa-solid fa-trophy text-amber-400 text-xs"></i> Best</span>
+                    <span id="high-score-display" class="text-2xl lg:text-3xl font-black text-amber-300 tracking-wide">0</span>
+                </div>
+                <div class="flex flex-col items-center">
+                    <span class="text-xs font-black text-slate-300 uppercase tracking-widest">Score</span>
+                    <span id="score-display" class="text-4xl lg:text-6xl font-black text-white tracking-wider drop-shadow-md">0</span>
+                </div>
+                <div class="flex flex-col items-end">
+                    <span class="text-xs font-black text-orange-400/90 uppercase tracking-widest flex items-center gap-1">Streak <i class="fa-solid fa-bolt text-orange-400"></i></span>
+                    <div class="flex items-center gap-1">
+                        <span id="streak-display" class="text-2xl lg:text-3xl font-black text-orange-400">0</span>
+                        <span class="text-xs text-orange-400 font-bold">x</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="relative w-full aspect-square p-2.5 glass-panel rounded-3xl shadow-2xl border-2 border-cyan-500/30 flex items-center justify-center my-auto overflow-hidden">
+                <canvas id="particle-canvas"></canvas>
+                <div id="grid-container" class="grid grid-cols-8 grid-rows-8 gap-1 w-full h-full relative z-10"></div>
+                <div id="combo-floating-container" class="absolute inset-0 pointer-events-none flex items-center justify-center z-30"></div>
+            </div>
+
+            <div class="w-full glass-panel rounded-3xl p-3 flex items-center justify-around h-36 relative border border-white/15">
+                <div class="dock-slot w-28 h-28 flex items-center justify-center relative cursor-grab active:cursor-grabbing" data-slot-index="0"></div>
+                <div class="dock-slot w-28 h-28 flex items-center justify-center relative cursor-grab active:cursor-grabbing" data-slot-index="1"></div>
+                <div class="dock-slot w-28 h-28 flex items-center justify-center relative cursor-grab active:cursor-grabbing" data-slot-index="2"></div>
+            </div>
+        </div>
+
+        <div class="hidden lg:flex flex-col w-72 h-full justify-between gap-4">
+            <div class="glass-panel p-6 rounded-3xl flex flex-col gap-3">
+                <h3 class="text-base font-black text-slate-100 border-b border-white/10 pb-2 flex items-center gap-2"><i class="fa-solid fa-gamepad text-cyan-400"></i> Controls & Rules</h3>
+                <ul class="text-xs text-slate-300 space-y-3 leading-relaxed">
+                    <li class="flex items-start gap-2"><span class="bg-cyan-500/30 text-cyan-300 rounded px-1.5 py-0.5 font-bold">1</span><span>Drag shapes onto the grid to form full lines.</span></li>
+                    <li class="flex items-start gap-2"><span class="bg-cyan-500/30 text-cyan-300 rounded px-1.5 py-0.5 font-bold">2</span><span>Clear rows or columns to make room and score points.</span></li>
+                    <li class="flex items-start gap-2"><span class="bg-amber-500/30 text-amber-300 rounded px-1.5 py-0.5 font-bold">3</span><span>Clear back-to-back lines for <strong class="text-amber-300">Mega Combos</strong>!</span></li>
+                </ul>
+            </div>
+            <div class="glass-panel p-6 rounded-3xl flex flex-col items-center justify-center gap-4">
+                <button id="btn-restart-game" class="w-full py-4 bg-gradient-to-r from-cyan-500 via-blue-600 to-indigo-600 hover:from-cyan-400 hover:to-indigo-500 active:scale-95 transition font-black rounded-2xl shadow-xl flex items-center justify-center gap-2 text-sm tracking-wider uppercase">
+                    <i class="fa-solid fa-rotate-right"></i> Restart Game
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div id="drag-ghost"></div>
+
+    <div id="game-over-modal" class="fixed inset-0 bg-slate-950/85 backdrop-blur-md z-50 flex items-center justify-center p-4 opacity-0 pointer-events-none transition-opacity duration-300">
+        <div class="glass-panel max-w-md w-full p-8 rounded-3xl flex flex-col items-center text-center shadow-2xl border border-white/20 scale-90 transition-transform duration-300" id="game-over-content">
+            <div class="w-20 h-20 rounded-2xl bg-red-500/20 border-2 border-red-500/50 flex items-center justify-center mb-4 text-red-400 text-4xl shadow-lg"><i class="fa-solid fa-ban"></i></div>
+            <h2 class="text-3xl font-black text-white tracking-wider mb-1">NO MORE MOVES!</h2>
+            <p class="text-sm text-slate-300 mb-6">There is no remaining space on the grid for your shapes.</p>
+            <div class="w-full bg-slate-900/80 rounded-2xl p-4 mb-6 flex flex-col gap-3 border border-white/10">
+                <div class="flex justify-between items-center border-b border-white/10 pb-2"><span class="text-slate-400 text-sm font-bold">Final Score</span><span id="go-final-score" class="text-3xl font-black text-white">0</span></div>
+                <div class="flex justify-between items-center"><span class="text-slate-400 text-sm font-bold">High Score</span><span id="go-high-score" class="text-2xl font-black text-amber-400">0</span></div>
+            </div>
+            <div id="new-highscore-badge" class="hidden mb-6 py-2 px-5 bg-amber-500/20 border border-amber-400/50 rounded-full text-amber-300 text-xs font-black tracking-widest uppercase flex items-center gap-2">
+                <i class="fa-solid fa-crown"></i> New Personal Best!
+            </div>
+            <button id="btn-modal-restart" class="w-full py-4 bg-gradient-to-r from-cyan-400 via-blue-500 to-indigo-600 hover:opacity-95 active:scale-95 text-white font-black text-base tracking-widest rounded-2xl shadow-xl transition uppercase">PLAY AGAIN</button>
+        </div>
+    </div>
+
+    <div id="auth-modal" class="fixed inset-0 bg-slate-950/85 backdrop-blur-md z-[70] flex items-center justify-center p-4 hidden">
+        <div class="glass-panel w-full max-w-md rounded-3xl p-6 flex flex-col gap-4 border border-white/20">
+            <div class="flex items-center justify-between">
+                <h2 class="text-xl font-black tracking-wider flex items-center gap-2">
+                    <i class="fa-solid fa-id-card text-cyan-400"></i> ACCOUNT DETAILS
+                </h2>
+                <button id="auth-close" class="w-8 h-8 rounded-lg bg-white/10 hover:bg-white/20 flex items-center justify-center"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+
+            <div id="auth-logged-out-view" class="flex flex-col gap-3">
+                <div class="flex bg-slate-900/80 p-1 rounded-xl border border-white/10">
+                    <button id="tab-login" class="flex-1 py-1.5 font-bold text-xs rounded-lg bg-cyan-500/30 text-cyan-300 transition">Log In</button>
+                    <button id="tab-signup" class="flex-1 py-1.5 font-bold text-xs text-slate-400 rounded-lg transition">Sign Up</button>
+                </div>
+                <form id="auth-form" class="flex flex-col gap-3">
+                    <input id="auth-username" type="text" placeholder="Username" class="w-full px-3 py-2.5 rounded-xl bg-slate-900/80 border border-white/15 text-sm text-white outline-none focus:border-cyan-400 hidden">
+                    <input id="auth-email" type="email" placeholder="Email address" class="w-full px-3 py-2.5 rounded-xl bg-slate-900/80 border border-white/15 text-sm text-white outline-none focus:border-cyan-400" required>
+                    <input id="auth-password" type="password" placeholder="Password" class="w-full px-3 py-2.5 rounded-xl bg-slate-900/80 border border-white/15 text-sm text-white outline-none focus:border-cyan-400" required>
+                    <button type="submit" id="auth-submit-btn" class="w-full py-3 rounded-xl bg-gradient-to-r from-cyan-500 to-indigo-600 font-black text-sm uppercase tracking-wider active:scale-95 transition">LOG IN</button>
+                </form>
+            </div>
+
+            <div id="auth-logged-in-view" class="flex flex-col gap-4 hidden">
+                <div class="flex items-center gap-4 bg-slate-900/80 p-4 rounded-2xl border border-white/10">
+                    <div class="relative w-16 h-16 rounded-full overflow-hidden bg-slate-800 border-2 border-cyan-400 shrink-0 flex items-center justify-center">
+                        <img id="detail-avatar-img" class="w-full h-full object-cover hidden" alt="Avatar">
+                        <i id="detail-avatar-fallback" class="fa-solid fa-user text-2xl text-slate-400"></i>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <div id="detail-username-display" class="font-black text-lg text-cyan-300 truncate">User</div>
+                        <div id="detail-email-display" class="text-xs text-slate-400 truncate">email@example.com</div>
+                        <div class="text-[10px] text-slate-500 mt-1">Last Login: <span id="detail-last-login" class="text-slate-400">Never</span></div>
+                    </div>
+                </div>
+
+                <form id="profile-edit-form" class="flex flex-col gap-3 bg-slate-900/50 p-4 rounded-2xl border border-white/10">
+                    <span class="text-xs font-bold text-slate-300 uppercase tracking-wider border-b border-white/10 pb-1">Edit Editable Profile</span>
+                    <div>
+                        <label class="text-[11px] text-slate-400 font-semibold">Avatar Image URL</label>
+                        <input id="edit-avatar-url" type="url" placeholder="https://example.com/avatar.png" class="w-full px-3 py-2 rounded-xl bg-slate-900/90 border border-white/15 text-xs text-white outline-none focus:border-cyan-400 mt-1">
+                    </div>
+                    <div>
+                        <label class="text-[11px] text-slate-400 font-semibold">Username</label>
+                        <input id="edit-username" type="text" placeholder="Username" class="w-full px-3 py-2 rounded-xl bg-slate-900/90 border border-white/15 text-xs text-white outline-none focus:border-cyan-400 mt-1">
+                    </div>
+                    <div class="grid grid-cols-2 gap-2">
+                        <div>
+                            <label class="text-[11px] text-slate-400 font-semibold">High Score</label>
+                            <input id="edit-highscore" type="number" class="w-full px-3 py-2 rounded-xl bg-slate-900/90 border border-white/15 text-xs text-amber-300 font-black outline-none focus:border-cyan-400 mt-1">
+                        </div>
+                        <div>
+                            <label class="text-[11px] text-slate-400 font-semibold">Max Streak</label>
+                            <input id="edit-maxstreak" type="number" class="w-full px-3 py-2 rounded-xl bg-slate-900/90 border border-white/15 text-xs text-orange-400 font-black outline-none focus:border-cyan-400 mt-1">
+                        </div>
+                    </div>
+                    <button type="submit" class="w-full py-2.5 rounded-xl bg-cyan-500/30 hover:bg-cyan-500/50 border border-cyan-400/50 font-black text-xs uppercase tracking-wider text-cyan-300 transition mt-1">SAVE CHANGES</button>
+                </form>
+
+                <button id="btn-logout" class="w-full py-3 rounded-xl bg-red-500/20 border border-red-500/40 text-red-300 hover:bg-red-500/30 font-black text-xs uppercase tracking-wider active:scale-95 transition flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-right-from-bracket"></i> LOG OUT
+                </button>
+            </div>
+
+            <p id="auth-msg" class="text-xs text-center min-h-[1rem] text-slate-400"></p>
+        </div>
+    </div>
+
+    <script>
+        const GRID_SIZE = 8;
+        let score = 0;
+        let highScore = parseInt(localStorage.getItem('block_blast_highscore') || '0', 10);
+        let streak = 0;
+        let maxStreak = 0;
+        let totalLinesCleared = 0;
+        let totalBlocksPlaced = 0;
+        let soundEnabled = true;
+
+        let grid = Array(GRID_SIZE).fill(null).map(() => Array(GRID_SIZE).fill(null));
+        let dockShapes = [null, null, null];
+        let draggingSlotIndex = null;
+        let activeDragShape = null;
+
+        const SHAPES_CONFIG = [
+            { matrix: [[1]], color: 'color-cyan' },
+            { matrix: [[1, 1], [1, 1]], color: 'color-yellow' },
+            { matrix: [[1, 1, 1], [1, 1, 1], [1, 1, 1]], color: 'color-orange' },
+            { matrix: [[1, 1]], color: 'color-cyan' },
+            { matrix: [[1, 1, 1]], color: 'color-blue' },
+            { matrix: [[1, 1, 1, 1]], color: 'color-purple' },
+            { matrix: [[1, 1, 1, 1, 1]], color: 'color-red' },
+            { matrix: [[1], [1]], color: 'color-cyan' },
+            { matrix: [[1], [1], [1]], color: 'color-blue' },
+            { matrix: [[1], [1], [1], [1]], color: 'color-purple' },
+            { matrix: [[1], [1], [1], [1], [1]], color: 'color-red' },
+            { matrix: [[1, 0], [1, 0], [1, 1]], color: 'color-green' },
+            { matrix: [[0, 1], [0, 1], [1, 1]], color: 'color-green' },
+            { matrix: [[1, 1, 1], [1, 0, 0]], color: 'color-green' },
+            { matrix: [[1, 1, 1], [0, 0, 1]], color: 'color-green' },
+            { matrix: [[1, 0], [1, 1]], color: 'color-orange' },
+            { matrix: [[0, 1], [1, 1]], color: 'color-orange' },
+            { matrix: [[1, 1], [1, 0]], color: 'color-orange' },
+            { matrix: [[1, 1], [0, 1]], color: 'color-orange' },
+            { matrix: [[1, 1, 1], [0, 1, 0]], color: 'color-purple' },
+            { matrix: [[0, 1, 0], [1, 1, 1]], color: 'color-purple' }
+        ];
+
+        class AudioFX {
+            constructor() { this.ctx = null; }
+            init() { if (!this.ctx) this.ctx = new (window.AudioContext || window.webkitAudioContext)(); }
+            playPlace() {
+                if (!soundEnabled) return;
+                this.init();
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(300, this.ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(120, this.ctx.currentTime + 0.08);
+                gain.gain.setValueAtTime(0.3, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.08);
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.08);
+            }
+            playClear(combo = 1) {
+                if (!soundEnabled) return;
+                this.init();
+                const baseFreq = 440 + (combo * 100);
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(baseFreq, this.ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(baseFreq * 1.8, this.ctx.currentTime + 0.25);
+                gain.gain.setValueAtTime(0.4, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.25);
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.25);
+            }
+            playGameOver() {
+                if (!soundEnabled) return;
+                this.init();
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(220, this.ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(60, this.ctx.currentTime + 0.5);
+                gain.gain.setValueAtTime(0.3, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.5);
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.5);
+            }
+        }
+        const sfx = new AudioFX();
+
+        const gridContainer = document.getElementById('grid-container');
+        const scoreDisplay = document.getElementById('score-display');
+        const highScoreDisplay = document.getElementById('high-score-display');
+        const streakDisplay = document.getElementById('streak-display');
+        const statMaxStreak = document.getElementById('stat-max-streak');
+        const statLinesCleared = document.getElementById('stat-lines-cleared');
+        const statBlocksPlaced = document.getElementById('stat-blocks-placed');
+        const dragGhost = document.getElementById('drag-ghost');
+        const soundToggleBtn = document.getElementById('btn-sound-toggle');
+        const soundToggleDot = document.getElementById('sound-toggle-dot');
+        const restartBtn = document.getElementById('btn-restart-game');
+        const modalRestartBtn = document.getElementById('btn-modal-restart');
+        const gameOverModal = document.getElementById('game-over-modal');
+
+        const particleCanvas = document.getElementById('particle-canvas');
+        const pCtx = particleCanvas.getContext('2d');
+        let particles = [];
+
+        function resizeParticleCanvas() {
+            if (!gridContainer) return;
+            const rect = gridContainer.getBoundingClientRect();
+            particleCanvas.width = rect.width;
+            particleCanvas.height = rect.height;
+        }
+
+        window.addEventListener('resize', resizeParticleCanvas);
+        setTimeout(resizeParticleCanvas, 100);
+
+        class Particle {
+            constructor(x, y, color) {
+                this.x = x;
+                this.y = y;
+                this.vx = (Math.random() - 0.5) * 8;
+                this.vy = (Math.random() - 0.5) * 8;
+                this.size = Math.random() * 6 + 3;
+                this.color = color;
+                this.alpha = 1;
+                this.decay = Math.random() * 0.03 + 0.02;
+            }
+            update() {
+                this.x += this.vx;
+                this.y += this.vy;
+                this.alpha -= this.decay;
+            }
+            draw(ctx) {
+                ctx.save();
+                ctx.globalAlpha = Math.max(0, this.alpha);
+                ctx.fillStyle = this.color;
+                ctx.fillRect(this.x, this.y, this.size, this.size);
+                ctx.restore();
+            }
+        }
+
+        function createParticlesAtCell(r, c) {
+            const slot = getSlotDOM(r, c);
+            if (!slot) return;
+            const slotRect = slot.getBoundingClientRect();
+            const gridRect = gridContainer.getBoundingClientRect();
+            const x = slotRect.left - gridRect.left + slotRect.width / 2;
+            const y = slotRect.top - gridRect.top + slotRect.height / 2;
+
+            for (let i = 0; i < 8; i++) {
+                particles.push(new Particle(x, y, '#00f2fe'));
+                particles.push(new Particle(x, y, '#fff966'));
+            }
+        }
+
+        function animateParticles() {
+            pCtx.clearRect(0, 0, particleCanvas.width, particleCanvas.height);
+            for (let i = particles.length - 1; i >= 0; i--) {
+                particles[i].update();
+                particles[i].draw(pCtx);
+                if (particles[i].alpha <= 0) particles.splice(i, 1);
+            }
+            requestAnimationFrame(animateParticles);
+        }
+        requestAnimationFrame(animateParticles);
+
+        function initGridDOM() {
+            gridContainer.innerHTML = '';
+            for (let r = 0; r < GRID_SIZE; r++) {
+                for (let c = 0; c < GRID_SIZE; c++) {
+                    const slot = document.createElement('div');
+                    slot.className = 'grid-slot w-full h-full relative flex items-center justify-center';
+                    slot.dataset.row = r;
+                    slot.dataset.col = c;
+                    gridContainer.appendChild(slot);
+                }
+            }
+        }
+
+        function getSlotDOM(r, c) { return gridContainer.children[r * GRID_SIZE + c]; }
+
+        function renderGrid() {
+            for (let r = 0; r < GRID_SIZE; r++) {
+                for (let c = 0; c < GRID_SIZE; c++) {
+                    const slot = getSlotDOM(r, c);
+                    const colorClass = grid[r][c];
+                    const existingBlock = slot.querySelector('.block-cell');
+                    if (existingBlock) slot.removeChild(existingBlock);
+
+                    if (colorClass) {
+                        const block = document.createElement('div');
+                        block.className = `block-cell ${colorClass} w-full h-full`;
+                        slot.appendChild(block);
+                    }
+                }
+            }
+        }
+
+        function getRandomShape() {
+            const index = Math.floor(Math.random() * SHAPES_CONFIG.length);
+            return JSON.parse(JSON.stringify(SHAPES_CONFIG[index]));
+        }
+
+        function fillDockSlots() {
+            const dockSlots = document.querySelectorAll('.dock-slot');
+            dockSlots.forEach((slot, index) => {
+                if (!dockShapes[index]) dockShapes[index] = getRandomShape();
+                renderDockSlot(slot, dockShapes[index]);
+            });
+            checkGameOverCondition();
+        }
+
+        function renderDockSlot(container, shape) {
+            container.innerHTML = '';
+            if (!shape) return;
+
+            const matrix = shape.matrix;
+            const rows = matrix.length;
+            const cols = matrix[0].length;
+
+            const wrapper = document.createElement('div');
+            wrapper.className = `grid gap-1 pointer-events-none transition-transform duration-200`;
+            wrapper.style.gridTemplateColumns = `repeat(${cols}, minmax(0, 1fr))`;
+
+            const cellSize = Math.min(24, 95 / Math.max(rows, cols));
+
+            for (let r = 0; r < rows; r++) {
+                for (let c = 0; c < cols; c++) {
+                    const cell = document.createElement('div');
+                    cell.style.width = `${cellSize}px`;
+                    cell.style.height = `${cellSize}px`;
+                    if (matrix[r][c] === 1) cell.className = `block-cell ${shape.color}`;
+                    wrapper.appendChild(cell);
+                }
+            }
+            container.appendChild(wrapper);
+            gsap.fromTo(wrapper, { scale: 0.5, opacity: 0 }, { scale: 1, opacity: 1, duration: 0.3, ease: 'back.out(1.7)' });
+        }
+
+        function canPlaceShape(shape, startRow, startCol) {
+            const matrix = shape.matrix;
+            for (let r = 0; r < matrix.length; r++) {
+                for (let c = 0; c < matrix[0].length; c++) {
+                    if (matrix[r][c] === 1) {
+                        const targetR = startRow + r;
+                        const targetC = startCol + c;
+                        if (targetR < 0 || targetR >= GRID_SIZE || targetC < 0 || targetC >= GRID_SIZE) return false;
+                        if (grid[targetR][targetC] !== null) return false;
+                    }
+                }
+            }
+            return true;
+        }
+
+        function placeShape(shape, startRow, startCol) {
+            const matrix = shape.matrix;
+            let blockCount = 0;
+
+            for (let r = 0; r < matrix.length; r++) {
+                for (let c = 0; c < matrix[0].length; c++) {
+                    if (matrix[r][c] === 1) {
+                        grid[startRow + r][startCol + c] = shape.color;
+                        blockCount++;
+                    }
+                }
+            }
+
+            score += blockCount * 10;
+            totalBlocksPlaced += blockCount;
+            sfx.playPlace();
+            renderGrid();
+
+            for (let r = 0; r < matrix.length; r++) {
+                for (let c = 0; c < matrix[0].length; c++) {
+                    if (matrix[r][c] === 1) {
+                        const slot = getSlotDOM(startRow + r, startCol + c);
+                        const block = slot.querySelector('.block-cell');
+                        if (block) gsap.fromTo(block, { scale: 0.7 }, { scale: 1, duration: 0.15, ease: 'back.out(2)' });
+                    }
+                }
+            }
+
+            checkAndClearLines();
+            updateScoreDisplays();
+        }
+
+        function checkAndClearLines() {
+            const fullRows = [];
+            const fullCols = [];
+
+            for (let r = 0; r < GRID_SIZE; r++) {
+                if (grid[r].every(cell => cell !== null)) fullRows.push(r);
+            }
+            for (let c = 0; c < GRID_SIZE; c++) {
+                let isFull = true;
+                for (let r = 0; r < GRID_SIZE; r++) {
+                    if (grid[r][c] === null) { isFull = false; break; }
+                }
+                if (isFull) fullCols.push(c);
+            }
+
+            const linesCleared = fullRows.length + fullCols.length;
+
+            if (linesCleared > 0) {
+                streak++;
+                if (streak > maxStreak) maxStreak = streak;
+                totalLinesCleared += linesCleared;
+
+                fullRows.forEach(r => { for (let c = 0; c < GRID_SIZE; c++) createParticlesAtCell(r, c); });
+                fullCols.forEach(c => { for (let r = 0; r < GRID_SIZE; r++) createParticlesAtCell(r, c); });
+
+                const baseLineScore = linesCleared * 100;
+                const comboBonus = linesCleared > 1 ? linesCleared * 150 : 0;
+                const streakBonus = streak > 1 ? streak * 50 : 0;
+                score += (baseLineScore + comboBonus + streakBonus);
+
+                sfx.playClear(streak);
+
+                const slotsToClear = new Set();
+                fullRows.forEach(r => { for (let c = 0; c < GRID_SIZE; c++) slotsToClear.add(`${r},${c}`); });
+                fullCols.forEach(c => { for (let r = 0; r < GRID_SIZE; r++) slotsToClear.add(`${r},${c}`); });
+
+                slotsToClear.forEach(coord => {
+                    const [r, c] = coord.split(',').map(Number);
+                    const slot = getSlotDOM(r, c);
+                    const block = slot.querySelector('.block-cell');
+                    if (block) {
+                        gsap.to(block, {
+                            scale: 1.3, opacity: 0, duration: 0.2, ease: 'power2.out',
+                            onComplete: () => { grid[r][c] = null; renderGrid(); }
+                        });
+                    } else {
+                        grid[r][c] = null;
+                    }
+                });
+
+                if (linesCleared >= 2 || streak >= 3) {
+                    confetti({ particleCount: 60 * linesCleared, spread: 70, origin: { y: 0.6 } });
+                    showComboEffect(linesCleared, streak);
+                }
+            } else {
+                streak = 0;
+            }
+
+            updateScoreDisplays();
+        }
+
+        function showComboEffect(lines, comboStreak) {
+            const container = document.getElementById('combo-floating-container');
+            const comboEl = document.createElement('div');
+            comboEl.className = 'absolute font-black italic tracking-widest pointer-events-none z-40 flex flex-col items-center justify-center';
+
+            let comboTitle = `COMBO ${comboStreak}!`;
+            if (lines >= 3) comboTitle = `SUPER BLAST!`;
+            if (comboStreak >= 4) comboTitle = `EXCELLENT!!`;
+
+            comboEl.innerHTML = `<span class="text-4xl lg:text-6xl text-white combo-glow font-black drop-shadow-2xl uppercase">${comboTitle}</span>`;
+            container.appendChild(comboEl);
+
+            gsap.fromTo(comboEl, 
+                { scale: 0.2, y: 30, opacity: 0 }, 
+                { scale: 1.25, y: -20, opacity: 1, duration: 0.35, ease: 'back.out(2.2)', onComplete: () => {
+                    gsap.to(comboEl, { scale: 1, y: -60, opacity: 0, duration: 0.45, delay: 0.35, ease: 'power2.in', onComplete: () => {
+                        if (comboEl.parentNode) comboEl.parentNode.removeChild(comboEl);
+                    }});
+                }}
+            );
+        }
+
+        function updateScoreDisplays() {
+            scoreDisplay.textContent = score.toLocaleString();
+            if (score > highScore) {
+                highScore = score;
+                localStorage.setItem('block_blast_highscore', highScore.toString());
+                syncProfileData({ high_score: highScore });
+            }
+
+            highScoreDisplay.textContent = highScore.toLocaleString();
+            streakDisplay.textContent = streak;
+            statMaxStreak.textContent = maxStreak;
+            statLinesCleared.textContent = totalLinesCleared;
+            statBlocksPlaced.textContent = totalBlocksPlaced;
+        }
+
+        function checkGameOverCondition() {
+            let canMoveAny = false;
+            for (let i = 0; i < dockShapes.length; i++) {
+                const shape = dockShapes[i];
+                if (!shape) continue;
+
+                for (let r = 0; r < GRID_SIZE; r++) {
+                    for (let c = 0; c < GRID_SIZE; c++) {
+                        if (canPlaceShape(shape, r, c)) { canMoveAny = true; break; }
+                    }
+                    if (canMoveAny) break;
+                }
+                if (canMoveAny) break;
+            }
+
+            if (dockShapes.every(s => s === null)) canMoveAny = true;
+            if (!canMoveAny) setTimeout(triggerGameOver, 400);
+        }
+
+        function triggerGameOver() {
+            sfx.playGameOver();
+            document.getElementById('go-final-score').textContent = score.toLocaleString();
+            document.getElementById('go-high-score').textContent = highScore.toLocaleString();
+            
+            const badge = document.getElementById('new-highscore-badge');
+            if (score >= highScore && score > 0) {
+                badge.classList.remove('hidden');
+                confetti({ particleCount: 120, spread: 100, origin: { y: 0.5 } });
+            } else {
+                badge.classList.add('hidden');
+            }
+
+            gameOverModal.classList.remove('opacity-0', 'pointer-events-none');
+            const content = document.getElementById('game-over-content');
+            content.classList.remove('scale-90');
+            content.classList.add('scale-100');
+        }
+
+        function initDragControls() {
+            const dockSlots = document.querySelectorAll('.dock-slot');
+            dockSlots.forEach(slot => {
+                slot.addEventListener('mousedown', handleDragStart);
+                slot.addEventListener('touchstart', handleDragStart, { passive: false });
+            });
+
+            window.addEventListener('mousemove', handleDragMove);
+            window.addEventListener('touchmove', handleDragMove, { passive: false });
+            window.addEventListener('mouseup', handleDragEnd);
+            window.addEventListener('touchend', handleDragEnd);
+        }
+
+        function handleDragStart(e) {
+            const slotIndex = parseInt(this.dataset.slotIndex, 10);
+            const shape = dockShapes[slotIndex];
+            if (!shape) return;
+
+            if (e.type === 'touchstart') e.preventDefault();
+
+            draggingSlotIndex = slotIndex;
+            activeDragShape = shape;
+
+            renderDragGhost(shape);
+            updateGhostPosition(e);
+            dragGhost.style.display = 'block';
+            this.style.opacity = '0.3';
+        }
+
+        function renderDragGhost(shape) {
+            dragGhost.innerHTML = '';
+            const matrix = shape.matrix;
+            const gridEl = document.createElement('div');
+            gridEl.className = 'grid gap-1';
+            gridEl.style.gridTemplateColumns = `repeat(${matrix[0].length}, minmax(0, 1fr))`;
+
+            const firstSlot = gridContainer.children[0];
+            const slotWidth = firstSlot ? firstSlot.getBoundingClientRect().width : 40;
+
+            for (let r = 0; r < matrix.length; r++) {
+                for (let c = 0; c < matrix[0].length; c++) {
+                    const cell = document.createElement('div');
+                    cell.style.width = `${slotWidth}px`;
+                    cell.style.height = `${slotWidth}px`;
+                    if (matrix[r][c] === 1) cell.className = `block-cell ${shape.color}`;
+                    gridEl.appendChild(cell);
+                }
+            }
+            dragGhost.appendChild(gridEl);
+        }
+
+        function updateGhostPosition(e) {
+            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+            const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+            const offsetY = e.touches ? -60 : 0;
+
+            dragGhost.style.left = `${clientX}px`;
+            dragGhost.style.top = `${clientY + offsetY}px`;
+            updateBoardHighlights(clientX, clientY + offsetY);
+        }
+
+        function handleDragMove(e) {
+            if (draggingSlotIndex === null) return;
+            if (e.type === 'touchmove') e.preventDefault();
+            updateGhostPosition(e);
+        }
+
+        function updateBoardHighlights(pointerX, pointerY) {
+            clearBoardHighlights();
+            if (!activeDragShape) return;
+
+            const gridRect = gridContainer.getBoundingClientRect();
+            const firstSlotRect = gridContainer.children[0].getBoundingClientRect();
+            const slotSize = firstSlotRect.width;
+
+            const relativeX = pointerX - gridRect.left - (activeDragShape.matrix[0].length * slotSize) / 2;
+            const relativeY = pointerY - gridRect.top - (activeDragShape.matrix.length * slotSize) / 2;
+
+            const startCol = Math.round(relativeX / slotSize);
+            const startRow = Math.round(relativeY / slotSize);
+
+            if (canPlaceShape(activeDragShape, startRow, startCol)) {
+                for (let r = 0; r < activeDragShape.matrix.length; r++) {
+                    for (let c = 0; c < activeDragShape.matrix[0].length; c++) {
+                        if (activeDragShape.matrix[r][c] === 1) {
+                            const slot = getSlotDOM(startRow + r, startCol + c);
+                            if (slot) slot.classList.add('grid-slot-highlight');
+                        }
+                    }
+                }
+            }
+        }
+
+        function clearBoardHighlights() {
+            const highlights = gridContainer.querySelectorAll('.grid-slot-highlight');
+            highlights.forEach(el => el.classList.remove('grid-slot-highlight'));
+        }
+
+        function handleDragEnd(e) {
+            if (draggingSlotIndex === null) return;
+
+            const pointerX = parseFloat(dragGhost.style.left);
+            const pointerY = parseFloat(dragGhost.style.top);
+
+            const gridRect = gridContainer.getBoundingClientRect();
+            const firstSlotRect = gridContainer.children[0].getBoundingClientRect();
+            const slotSize = firstSlotRect.width;
+
+            const relativeX = pointerX - gridRect.left - (activeDragShape.matrix[0].length * slotSize) / 2;
+            const relativeY = pointerY - gridRect.top - (activeDragShape.matrix.length * slotSize) / 2;
+
+            const startCol = Math.round(relativeX / slotSize);
+            const startRow = Math.round(relativeY / slotSize);
+
+            const slotDOM = document.querySelector(`.dock-slot[data-slot-index="${draggingSlotIndex}"]`);
+
+            if (canPlaceShape(activeDragShape, startRow, startCol)) {
+                placeShape(activeDragShape, startRow, startCol);
+                dockShapes[draggingSlotIndex] = null;
+                if (slotDOM) slotDOM.innerHTML = '';
+                if (dockShapes.every(s => s === null)) fillDockSlots();
+                else checkGameOverCondition();
+            } else {
+                if (slotDOM) slotDOM.style.opacity = '1';
+            }
+
+            dragGhost.style.display = 'none';
+            clearBoardHighlights();
+            draggingSlotIndex = null;
+            activeDragShape = null;
+        }
+
+        function resetGame() {
+            score = 0;
+            streak = 0;
+            grid = Array(GRID_SIZE).fill(null).map(() => Array(GRID_SIZE).fill(null));
+            dockShapes = [null, null, null];
+
+            renderGrid();
+            fillDockSlots();
+            updateScoreDisplays();
+
+            gameOverModal.classList.add('opacity-0', 'pointer-events-none');
+            const content = document.getElementById('game-over-content');
+            content.classList.remove('scale-100');
+            content.classList.add('scale-90');
+        }
+
+        soundToggleBtn.addEventListener('click', () => {
+            soundEnabled = !soundEnabled;
+            if (soundEnabled) {
+                soundToggleBtn.classList.replace('bg-slate-700', 'bg-indigo-600');
+                soundToggleDot.classList.replace('translate-x-0', 'translate-x-6');
+            } else {
+                soundToggleBtn.classList.replace('bg-indigo-600', 'bg-slate-700');
+                soundToggleDot.classList.replace('translate-x-6', 'translate-x-0');
+            }
+        });
+
+        restartBtn.addEventListener('click', resetGame);
+        modalRestartBtn.addEventListener('click', resetGame);
+
+        let authToken = localStorage.getItem('blast_block_token') || null;
+        let userProfile = JSON.parse(localStorage.getItem('blast_block_profile') || 'null');
+        let isSignUpMode = false;
+
+        const btnAccount = document.getElementById('btn-account');
+        const accountBtnLabel = document.getElementById('account-btn-label');
+        const accountAvatarImg = document.getElementById('account-avatar-img');
+        const accountIconFallback = document.getElementById('account-icon-fallback');
+        
+        const authModal = document.getElementById('auth-modal');
+        const authClose = document.getElementById('auth-close');
+        const tabLogin = document.getElementById('tab-login');
+        const tabSignup = document.getElementById('tab-signup');
+        const authForm = document.getElementById('auth-form');
+        const authUsername = document.getElementById('auth-username');
+        const authEmail = document.getElementById('auth-email');
+        const authPassword = document.getElementById('auth-password');
+        const authSubmitBtn = document.getElementById('auth-submit-btn');
+        const authMsg = document.getElementById('auth-msg');
+        
+        const authLoggedOutView = document.getElementById('auth-logged-out-view');
+        const authLoggedInView = document.getElementById('auth-logged-in-view');
+        
+        const detailAvatarImg = document.getElementById('detail-avatar-img');
+        const detailAvatarFallback = document.getElementById('detail-avatar-fallback');
+        const detailUsernameDisplay = document.getElementById('detail-username-display');
+        const detailEmailDisplay = document.getElementById('detail-email-display');
+        const detailLastLogin = document.getElementById('detail-last-login');
+        
+        const profileEditForm = document.getElementById('profile-edit-form');
+        const editAvatarUrl = document.getElementById('edit-avatar-url');
+        const editUsername = document.getElementById('edit-username');
+        const editHighscore = document.getElementById('edit-highscore');
+        const editMaxstreak = document.getElementById('edit-maxstreak');
+        const btnLogout = document.getElementById('btn-logout');
+
+        function updateUIState() {
+            if (authToken && userProfile) {
+                accountBtnLabel.textContent = userProfile.username || 'User';
+                if (userProfile.avatar_url) {
+                    accountAvatarImg.src = userProfile.avatar_url;
+                    accountAvatarImg.classList.remove('hidden');
+                    accountIconFallback.classList.add('hidden');
+                    detailAvatarImg.src = userProfile.avatar_url;
+                    detailAvatarImg.classList.remove('hidden');
+                    detailAvatarFallback.classList.add('hidden');
+                } else {
+                    accountAvatarImg.classList.add('hidden');
+                    accountIconFallback.classList.remove('hidden');
+                    detailAvatarImg.classList.add('hidden');
+                    detailAvatarFallback.classList.remove('hidden');
+                }
+
+                detailUsernameDisplay.textContent = userProfile.username || 'User';
+                detailEmailDisplay.textContent = userProfile.email || 'Account Logged In';
+                detailLastLogin.textContent = userProfile.last_login ? new Date(userProfile.last_login).toLocaleString() : 'Just now';
+
+                editAvatarUrl.value = userProfile.avatar_url || '';
+                editUsername.value = userProfile.username || '';
+                editHighscore.value = userProfile.high_score || highScore;
+                editMaxstreak.value = userProfile.highest_streak || maxStreak;
+
+                authLoggedOutView.classList.add('hidden');
+                authLoggedInView.classList.remove('hidden');
+            } else {
+                accountBtnLabel.textContent = 'Account';
+                accountAvatarImg.classList.add('hidden');
+                accountIconFallback.classList.remove('hidden');
+                authLoggedOutView.classList.remove('hidden');
+                authLoggedInView.classList.add('hidden');
+            }
+        }
+
+        async function fetchProfile() {
+            if (!authToken) return;
+            try {
+                const res = await fetch('/api/user', {
+                    headers: { 'Authorization': `Bearer ${authToken}` }
+                });
+                const json = await res.json();
+                if (json.success) {
+                    userProfile = { ...json.profile, email: json.user.email };
+                    localStorage.setItem('blast_block_profile', JSON.stringify(userProfile));
+                    if (userProfile.high_score > highScore) {
+                        highScore = userProfile.high_score;
+                        localStorage.setItem('block_blast_highscore', highScore.toString());
+                        updateScoreDisplays();
+                    }
+                    updateUIState();
+                }
+            } catch (err) {}
+        }
+
+        async function syncProfileData(fields) {
+            if (!authToken) return;
+            try {
+                const res = await fetch('/api/user', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${authToken}`
+                    },
+                    body: JSON.stringify(fields)
+                });
+                const json = await res.json();
+                if (json.success) {
+                    userProfile = { ...userProfile, ...json.profile };
+                    localStorage.setItem('blast_block_profile', JSON.stringify(userProfile));
+                    updateUIState();
+                }
+            } catch (err) {}
+        }
+
+        function setAuthMode(signUp) {
+            isSignUpMode = signUp;
+            authMsg.textContent = '';
+            if (isSignUpMode) {
+                tabSignup.classList.add('bg-cyan-500/30', 'text-cyan-300');
+                tabSignup.classList.remove('text-slate-400');
+                tabLogin.classList.remove('bg-cyan-500/30', 'text-cyan-300');
+                tabLogin.classList.add('text-slate-400');
+                authUsername.classList.remove('hidden');
+                authSubmitBtn.textContent = 'CREATE ACCOUNT';
+            } else {
+                tabLogin.classList.add('bg-cyan-500/30', 'text-cyan-300');
+                tabLogin.classList.remove('text-slate-400');
+                tabSignup.classList.remove('bg-cyan-500/30', 'text-cyan-300');
+                tabSignup.classList.add('text-slate-400');
+                authUsername.classList.add('hidden');
+                authSubmitBtn.textContent = 'LOG IN';
+            }
+        }
+
+        btnAccount.addEventListener('click', () => {
+            authModal.classList.remove('hidden');
+            updateUIState();
+            if (authToken) fetchProfile();
+        });
+
+        authClose.addEventListener('click', () => authModal.classList.add('hidden'));
+        authModal.addEventListener('click', e => { if (e.target === authModal) authModal.classList.add('hidden'); });
+
+        tabLogin.addEventListener('click', () => setAuthMode(false));
+        tabSignup.addEventListener('click', () => setAuthMode(true));
+
+        authForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            authMsg.textContent = 'Authenticating...';
+            authMsg.className = 'text-xs text-center min-h-[1rem] text-cyan-300';
+
+            try {
+                const res = await fetch('/api/auth', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        action: isSignUpMode ? 'signup' : 'login',
+                        email: authEmail.value.trim(),
+                        password: authPassword.value,
+                        username: authUsername.value.trim()
+                    })
+                });
+
+                const json = await res.json();
+                if (!res.ok || json.error) {
+                    authMsg.textContent = json.error || 'Authentication failed.';
+                    authMsg.className = 'text-xs text-center min-h-[1rem] text-red-400';
+                } else {
+                    authToken = json.session?.access_token || null;
+                    if (authToken) localStorage.setItem('blast_block_token', authToken);
+                    authMsg.textContent = 'Success!';
+                    authMsg.className = 'text-xs text-center min-h-[1rem] text-green-400';
+                    await fetchProfile();
+                    setTimeout(() => authModal.classList.add('hidden'), 800);
+                }
+            } catch (err) {
+                authMsg.textContent = 'Server connection failed.';
+                authMsg.className = 'text-xs text-center min-h-[1rem] text-red-400';
+            }
+        });
+
+        profileEditForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            authMsg.textContent = 'Saving updates...';
+            authMsg.className = 'text-xs text-center min-h-[1rem] text-cyan-300';
+
+            const newHighScore = parseInt(editHighscore.value, 10) || 0;
+            const newMaxStreak = parseInt(editMaxstreak.value, 10) || 0;
+
+            await syncProfileData({
+                avatar_url: editAvatarUrl.value.trim(),
+                username: editUsername.value.trim(),
+                high_score: newHighScore,
+                highest_streak: newMaxStreak
+            });
+
+            if (newHighScore > highScore) {
+                highScore = newHighScore;
+                localStorage.setItem('block_blast_highscore', highScore.toString());
+                updateScoreDisplays();
+            }
+
+            authMsg.textContent = 'Profile updated successfully!';
+            authMsg.className = 'text-xs text-center min-h-[1rem] text-green-400';
+        });
+
+        btnLogout.addEventListener('click', () => {
+            authToken = null;
+            userProfile = null;
+            localStorage.removeItem('blast_block_token');
+            localStorage.removeItem('blast_block_profile');
+            updateUIState();
+            authMsg.textContent = 'Logged out successfully.';
+            authMsg.className = 'text-xs text-center min-h-[1rem] text-slate-400';
+        });
+
+        window.onload = function() {
+            initGridDOM();
+            renderGrid();
+            fillDockSlots();
+            initDragControls();
+            updateScoreDisplays();
+            updateUIState();
+            if (authToken) fetchProfile();
+        };
+
+        (function () {
+            const KEY = 'blast_block_mods';
+            const status = {};
+            let stale = false;
+
+            const readMods = () => {
+                try {
+                    const v = JSON.parse(localStorage.getItem(KEY));
+                    return Array.isArray(v) ? v : [];
+                } catch (e) { return []; }
+            };
+            let mods = readMods();
+            const saveMods = () => {
+                try { localStorage.setItem(KEY, JSON.stringify(mods)); } catch (e) {}
+            };
+
+            window.BlastBlock = {
+                shapes: SHAPES_CONFIG,
+                get grid() { return grid; },
+                get dock() { return dockShapes; },
+                get score() { return score; },
+                set score(v) { score = v; updateScoreDisplays(); },
+                get streak() { return streak; },
+                set streak(v) { streak = v; updateScoreDisplays(); },
+                addShape(matrix, color) { SHAPES_CONFIG.push({ matrix, color }); },
+                refresh() { renderGrid(); updateScoreDisplays(); },
+                newDock() { dockShapes = [null, null, null]; fillDockSlots(); },
+                restart: resetGame
+            };
+
+            const styleEl = document.createElement('style');
+            styleEl.textContent = '#mod-url{user-select:text;-webkit-user-select:text}';
+            document.head.appendChild(styleEl);
+
+            const openBtn = document.createElement('button');
+            openBtn.id = 'btn-mods';
+            openBtn.title = 'Mods';
+            openBtn.className = 'fixed top-1.5 right-1.5 lg:top-4 lg:right-4 z-[60] w-8 h-8 lg:w-11 lg:h-11 rounded-xl glass-panel flex items-center justify-center text-indigo-300 hover:text-white active:scale-95 transition';
+            openBtn.innerHTML = '<i class="fa-solid fa-puzzle-piece"></i>';
+            document.body.appendChild(openBtn);
+
+            const modal = document.createElement('div');
+            modal.className = 'fixed inset-0 z-[70] bg-slate-950/85 backdrop-blur-md items-center justify-center p-4 hidden';
+            modal.innerHTML = `
+                <div class="glass-panel w-full max-w-md max-h-[85vh] rounded-3xl p-6 flex flex-col gap-4 border border-white/20">
+                    <div class="flex items-center justify-between">
+                        <h2 class="text-xl font-black tracking-wider flex items-center gap-2"><i class="fa-solid fa-puzzle-piece text-indigo-400"></i> MODS</h2>
+                        <button id="mods-close" class="w-8 h-8 rounded-lg bg-white/10 hover:bg-white/20 flex items-center justify-center"><i class="fa-solid fa-xmark"></i></button>
+                    </div>
+                    <div class="flex gap-2">
+                        <input id="mod-url" type="url" placeholder="https://example.com/mod.js" class="flex-1 min-w-0 px-3 py-2 rounded-xl bg-slate-900/80 border border-white/15 text-sm text-white outline-none focus:border-cyan-400">
+                        <button id="mod-add" class="px-4 rounded-xl bg-gradient-to-r from-cyan-500 to-indigo-600 font-black text-sm active:scale-95 transition">ADD</button>
+                    </div>
+                    <p id="mod-msg" class="text-xs text-slate-400 min-h-[1rem]"></p>
+                    <div id="mod-list" class="flex flex-col gap-2 overflow-y-auto"></div>
+                    <div id="mod-reload" class="hidden items-center justify-between gap-2 p-3 rounded-2xl bg-amber-500/15 border border-amber-400/40 text-xs text-amber-300 font-bold">
+                        <span>Reload to fully unload disabled or removed mods.</span>
+                        <button id="mod-reload-btn" class="px-3 py-1.5 rounded-lg bg-amber-500/30 hover:bg-amber-500/50 font-black uppercase tracking-wider">Reload</button>
+                    </div>
+                    <p class="text-[11px] text-slate-500 leading-relaxed">Mods are scripts that run with full access to this page. Only add links you trust.</p>
+                </div>`;
+            document.body.appendChild(modal);
+
+            const urlInput = modal.querySelector('#mod-url');
+            const addBtn = modal.querySelector('#mod-add');
+            const msgEl = modal.querySelector('#mod-msg');
+            const listEl = modal.querySelector('#mod-list');
+            const reloadBar = modal.querySelector('#mod-reload');
+
+            const setMsg = (text, bad) => {
+                msgEl.textContent = text || '';
+                msgEl.className = 'text-xs min-h-[1rem] ' + (bad ? 'text-red-400' : 'text-slate-400');
+            };
+
+            const nameFromUrl = u => {
+                try {
+                    const x = new URL(u);
+                    return decodeURIComponent(x.pathname.split('/').filter(Boolean).pop() || x.hostname);
+                } catch (e) { return u; }
+            };
+
+            function inject(src, onOk, onFail) {
+                const s = document.createElement('script');
+                s.src = src;
+                s.dataset.mod = '1';
+                s.onload = onOk;
+                s.onerror = () => { s.remove(); onFail(); };
+                document.body.appendChild(s);
+            }
+
+            function runMod(mod) {
+                status[mod.id] = 'loading';
+                render();
+                const done = ok => { status[mod.id] = ok ? 'loaded' : 'failed'; render(); };
+                inject(mod.url, () => done(true), () => {
+                    fetch(mod.url)
+                        .then(r => { if (!r.ok) throw new Error('bad status'); return r.text(); })
+                        .then(t => {
+                            const blobUrl = URL.createObjectURL(new Blob([t], { type: 'text/javascript' }));
+                            inject(blobUrl, () => { URL.revokeObjectURL(blobUrl); done(true); }, () => done(false));
+                        })
+                        .catch(() => done(false));
+                });
+            }
+
+            function addMod() {
+                const raw = urlInput.value.trim();
+                let parsed;
+                try {
+                    parsed = new URL(raw);
+                    if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') throw new Error('protocol');
+                } catch (e) {
+                    setMsg('Enter a valid http(s) link to a .js file.', true);
+                    return;
+                }
+                if (mods.some(m => m.url === parsed.href)) {
+                    setMsg('That mod is already in your list.', true);
+                    return;
+                }
+                const mod = {
+                    id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+                    url: parsed.href,
+                    name: nameFromUrl(parsed.href),
+                    enabled: true
+                };
+                mods.push(mod);
+                saveMods();
+                urlInput.value = '';
+                setMsg('');
+                runMod(mod);
+            }
+
+            function toggleMod(mod) {
+                mod.enabled = !mod.enabled;
+                saveMods();
+                if (mod.enabled && status[mod.id] !== 'loaded' && status[mod.id] !== 'loading') runMod(mod);
+                else render();
+            }
+
+            function removeMod(mod) {
+                if (status[mod.id] === 'loaded') stale = true;
+                mods = mods.filter(m => m.id !== mod.id);
+                delete status[mod.id];
+                saveMods();
+                render();
+            }
+
+            function render() {
+                listEl.innerHTML = '';
+                if (!mods.length) {
+                    const empty = document.createElement('p');
+                    empty.className = 'text-sm text-slate-400 text-center py-4';
+                    empty.textContent = 'No mods yet. Paste a link to a .js file above.';
+                    listEl.appendChild(empty);
+                }
+                mods.forEach(mod => {
+                    const st = mod.enabled ? (status[mod.id] || 'idle') : 'off';
+                    const row = document.createElement('div');
+                    row.className = 'flex items-center gap-3 p-3 rounded-2xl bg-slate-900/70 border border-white/10';
+
+                    const dot = document.createElement('span');
+                    const dotColors = {
+                        loaded: 'bg-green-400',
+                        loading: 'bg-amber-400 animate-pulse',
+                        failed: 'bg-red-500',
+                        off: 'bg-slate-600',
+                        idle: 'bg-slate-600'
+                    };
+                    dot.className = 'w-2.5 h-2.5 rounded-full shrink-0 ' + dotColors[st];
+
+                    const info = document.createElement('div');
+                    info.className = 'flex-1 min-w-0';
+                    const nameEl = document.createElement('div');
+                    nameEl.className = 'truncate font-bold text-sm';
+                    nameEl.textContent = mod.name;
+                    const urlEl = document.createElement('div');
+                    urlEl.className = 'truncate text-[11px] ' + (st === 'failed' ? 'text-red-400' : 'text-slate-400');
+                    urlEl.textContent = st === 'failed' ? 'Failed to load. Check the link.' : mod.url;
+                    urlEl.title = mod.url;
+                    info.append(nameEl, urlEl);
+
+                    const toggle = document.createElement('button');
+                    toggle.className = 'w-10 h-5 rounded-full p-0.5 flex items-center shrink-0 transition-colors ' + (mod.enabled ? 'bg-indigo-600' : 'bg-slate-700');
+                    const knob = document.createElement('div');
+                    knob.className = 'w-4 h-4 bg-white rounded-full shadow transition-transform ' + (mod.enabled ? 'translate-x-5' : 'translate-x-0');
+                    toggle.appendChild(knob);
+                    toggle.addEventListener('click', () => toggleMod(mod));
+
+                    const del = document.createElement('button');
+                    del.className = 'w-8 h-8 rounded-lg bg-red-500/15 hover:bg-red-500/30 text-red-400 flex items-center justify-center shrink-0';
+                    del.innerHTML = '<i class="fa-solid fa-trash text-xs"></i>';
+                    del.addEventListener('click', () => removeMod(mod));
+
+                    row.append(dot, info, toggle, del);
+                    listEl.appendChild(row);
+                });
+
+                const needsReload = stale || mods.some(m => !m.enabled && status[m.id] === 'loaded');
+                reloadBar.classList.toggle('hidden', !needsReload);
+                reloadBar.classList.toggle('flex', needsReload);
+            }
+
+            function openModal() {
+                render();
+                modal.classList.remove('hidden');
+                modal.classList.add('flex');
+            }
+
+            function closeModal() {
+                modal.classList.add('hidden');
+                modal.classList.remove('flex');
+            }
+
+            openBtn.addEventListener('click', openModal);
+            modal.querySelector('#mods-close').addEventListener('click', closeModal);
+            modal.addEventListener('click', e => { if (e.target === modal) closeModal(); });
+            addBtn.addEventListener('click', addMod);
+            urlInput.addEventListener('keydown', e => { if (e.key === 'Enter') addMod(); });
+            modal.querySelector('#mod-reload-btn').addEventListener('click', () => location.reload());
+            window.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+
+            window.addEventListener('load', () => { mods.filter(m => m.enabled).forEach(runMod); });
+        })();
+    </script>
+</body>
+</html>
