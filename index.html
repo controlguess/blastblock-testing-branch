@@ -37,12 +37,58 @@
         .combo-glow { text-shadow: 0 0 20px rgba(0, 242, 254, 0.9), 0 0 40px rgba(178, 36, 239, 0.9), 0 0 60px rgba(255, 224, 0, 0.9); }
         #particle-canvas { position: absolute; inset: 0; pointer-events: none; z-index: 25; }
         .glass-panel { background: rgba(255, 255, 255, 0.04); backdrop-filter: blur(16px); border: 1px solid rgba(255, 255, 255, 0.12); box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37); }
+        
+        .side-panel {
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s ease;
+        }
+        @media (max-width: 1023px) {
+            .side-panel-left {
+                position: fixed;
+                top: 0;
+                left: 0;
+                bottom: 0;
+                width: 280px;
+                z-index: 55;
+                background: rgba(9, 13, 32, 0.95);
+                backdrop-filter: blur(20px);
+                transform: translateX(-100%);
+                padding: 1.5rem;
+                overflow-y: auto;
+            }
+            .side-panel-left.open {
+                transform: translateX(0);
+            }
+            .side-panel-right {
+                position: fixed;
+                top: 0;
+                right: 0;
+                bottom: 0;
+                width: 280px;
+                z-index: 55;
+                background: rgba(9, 13, 32, 0.95);
+                backdrop-filter: blur(20px);
+                transform: translateX(100%);
+                padding: 1.5rem;
+                overflow-y: auto;
+            }
+            .side-panel-right.open {
+                transform: translateX(0);
+            }
+        }
     </style>
 </head>
 <body class="h-screen w-screen overflow-hidden text-white flex justify-center items-center">
 
-    <div class="fixed top-1.5 right-14 lg:top-4 lg:right-16 z-[60] flex items-center gap-2">
-        <button id="btn-account" title="Account" class="h-8 lg:h-11 px-3 rounded-xl glass-panel flex items-center gap-2 text-cyan-300 hover:text-white active:scale-95 transition text-xs lg:text-sm font-bold">
+    <div class="fixed top-2 right-4 lg:top-4 lg:right-16 z-[60] flex items-center gap-2">
+        <button id="btn-toggle-ui" title="Toggle Menu" class="h-8 lg:h-11 px-3 rounded-xl glass-panel flex items-center gap-2 text-indigo-300 hover:text-white active:scale-95 transition text-xs lg:text-sm font-bold border border-white/15">
+            <i class="fa-solid fa-bars"></i>
+            <span class="hidden sm:inline">Menu</span>
+        </button>
+        <a href="/leaderboard" title="Leaderboard" class="h-8 lg:h-11 px-3 rounded-xl glass-panel flex items-center gap-2 text-amber-300 hover:text-white active:scale-95 transition text-xs lg:text-sm font-bold border border-white/15">
+            <i class="fa-solid fa-trophy"></i>
+            <span class="hidden sm:inline">Leaderboard</span>
+        </a>
+        <button id="btn-account" title="Account" class="h-8 lg:h-11 px-3 rounded-xl glass-panel flex items-center gap-2 text-cyan-300 hover:text-white active:scale-95 transition text-xs lg:text-sm font-bold border border-white/15">
             <div id="account-avatar-container" class="w-6 h-6 rounded-full bg-cyan-500/30 flex items-center justify-center overflow-hidden border border-white/20">
                 <i id="account-icon-fallback" class="fa-solid fa-user text-xs"></i>
                 <img id="account-avatar-img" class="w-full h-full object-cover hidden" alt="Avatar">
@@ -51,8 +97,10 @@
         </button>
     </div>
 
+    <div id="ui-backdrop" class="fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-50 hidden transition-opacity lg:hidden"></div>
+
     <div class="w-full h-full max-w-7xl flex flex-col lg:flex-row items-center justify-between p-4 lg:p-8 gap-6">
-        <div class="hidden lg:flex flex-col w-72 h-full justify-between gap-4">
+        <div id="left-panel" class="side-panel side-panel-left flex flex-col w-72 h-full justify-between gap-4">
             <div class="glass-panel p-6 rounded-3xl flex flex-col items-center justify-center text-center">
                 <div class="flex items-center gap-3 mb-2">
                     <div class="w-10 h-10 rounded-md color-cyan flex items-center justify-center shadow-lg border border-white/40"><i class="fa-solid fa-cubes text-xl text-white drop-shadow"></i></div>
@@ -116,7 +164,7 @@
             </div>
         </div>
 
-        <div class="hidden lg:flex flex-col w-72 h-full justify-between gap-4">
+        <div id="right-panel" class="side-panel side-panel-right flex flex-col w-72 h-full justify-between gap-4">
             <div class="glass-panel p-6 rounded-3xl flex flex-col gap-3">
                 <h3 class="text-base font-black text-slate-100 border-b border-white/10 pb-2 flex items-center gap-2"><i class="fa-solid fa-gamepad text-cyan-400"></i> Controls & Rules</h3>
                 <ul class="text-xs text-slate-300 space-y-3 leading-relaxed">
@@ -323,6 +371,27 @@
         const restartBtn = document.getElementById('btn-restart-game');
         const modalRestartBtn = document.getElementById('btn-modal-restart');
         const gameOverModal = document.getElementById('game-over-modal');
+
+        const btnToggleUi = document.getElementById('btn-toggle-ui');
+        const leftPanel = document.getElementById('left-panel');
+        const rightPanel = document.getElementById('right-panel');
+        const uiBackdrop = document.getElementById('ui-backdrop');
+        let uiPanelsOpen = false;
+
+        function toggleUiPanels() {
+            uiPanelsOpen = !uiPanelsOpen;
+            if (window.innerWidth < 1024) {
+                leftPanel.classList.toggle('open', uiPanelsOpen);
+                rightPanel.classList.toggle('open', uiPanelsOpen);
+                uiBackdrop.classList.toggle('hidden', !uiPanelsOpen);
+            } else {
+                leftPanel.classList.toggle('hidden', !uiPanelsOpen);
+                rightPanel.classList.toggle('hidden', !uiPanelsOpen);
+            }
+        }
+
+        btnToggleUi.addEventListener('click', toggleUiPanels);
+        uiBackdrop.addEventListener('click', toggleUiPanels);
 
         const particleCanvas = document.getElementById('particle-canvas');
         const pCtx = particleCanvas.getContext('2d');
@@ -648,7 +717,7 @@
         async function syncGameOverStats(finalScore, gameMaxStreak) {
             if (!authToken) return;
             try {
-                const res = await fetch('/api/user', {
+                const res = await fetch('https://testing.blastblock.space/api/user', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -909,7 +978,7 @@
         async function fetchProfile() {
             if (!authToken) return;
             try {
-                const res = await fetch('/api/user', {
+                const res = await fetch('https://testing.blastblock.space/api/user', {
                     headers: { 'Authorization': `Bearer ${authToken}` }
                 });
                 const json = await res.json();
@@ -929,7 +998,7 @@
         async function syncProfileData(fields) {
             if (!authToken) return;
             try {
-                const res = await fetch('/api/user', {
+                const res = await fetch('https://testing.blastblock.space/api/user', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -984,7 +1053,7 @@
             authMsg.className = 'text-xs text-center min-h-[1rem] text-cyan-300';
 
             try {
-                const res = await fetch('/api/auth', {
+                const res = await fetch('https://testing.blastblock.space/api/auth', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -1084,7 +1153,8 @@
             const openBtn = document.createElement('button');
             openBtn.id = 'btn-mods';
             openBtn.title = 'Mods';
-            openBtn.className = 'fixed top-1.5 right-1.5 lg:top-4 lg:right-4 z-[60] w-8 h-8 lg:w-11 lg:h-11 rounded-xl glass-panel flex items-center justify-center text-indigo-300 hover:text-white active:scale-95 transition';
+            // Dimmed button as requested
+            openBtn.className = 'fixed top-2 left-4 lg:top-4 lg:left-4 z-[60] w-8 h-8 lg:w-11 lg:h-11 rounded-xl glass-panel flex items-center justify-center text-indigo-300 hover:text-white opacity-40 hover:opacity-100 active:scale-95 transition';
             openBtn.innerHTML = '<i class="fa-solid fa-puzzle-piece"></i>';
             document.body.appendChild(openBtn);
 
