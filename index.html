@@ -38,69 +38,50 @@
         #particle-canvas { position: absolute; inset: 0; pointer-events: none; z-index: 25; }
         .glass-panel { background: rgba(255, 255, 255, 0.04); backdrop-filter: blur(16px); border: 1px solid rgba(255, 255, 255, 0.12); box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37); }
         
-        .side-panel {
+        #top-slide-menu {
             transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s ease;
         }
-        @media (max-width: 1023px) {
-            .side-panel-left {
-                position: fixed;
-                top: 0;
-                left: 0;
-                bottom: 0;
-                width: 280px;
-                z-index: 55;
-                background: rgba(9, 13, 32, 0.95);
-                backdrop-filter: blur(20px);
-                transform: translateX(-100%);
-                padding: 1.5rem;
-                overflow-y: auto;
-            }
-            .side-panel-left.open {
-                transform: translateX(0);
-            }
-            .side-panel-right {
-                position: fixed;
-                top: 0;
-                right: 0;
-                bottom: 0;
-                width: 280px;
-                z-index: 55;
-                background: rgba(9, 13, 32, 0.95);
-                backdrop-filter: blur(20px);
-                transform: translateX(100%);
-                padding: 1.5rem;
-                overflow-y: auto;
-            }
-            .side-panel-right.open {
-                transform: translateX(0);
-            }
+        #top-slide-menu.closed {
+            transform: translateY(-120%);
+            opacity: 0;
+            pointer-events: none;
+        }
+        #top-slide-menu.open {
+            transform: translateY(0);
+            opacity: 1;
+            pointer-events: auto;
         }
     </style>
 </head>
 <body class="h-screen w-screen overflow-hidden text-white flex justify-center items-center">
 
-    <div class="fixed top-2 right-4 lg:top-4 lg:right-16 z-[60] flex items-center gap-2">
-        <button id="btn-toggle-ui" title="Toggle Menu" class="h-8 lg:h-11 px-3 rounded-xl glass-panel flex items-center gap-2 text-indigo-300 hover:text-white active:scale-95 transition text-xs lg:text-sm font-bold border border-white/15">
+    <div class="fixed top-2 right-4 z-[60]">
+        <button id="btn-toggle-menu" title="Toggle Menu" class="h-8 lg:h-11 px-3.5 rounded-xl glass-panel flex items-center gap-2 text-cyan-300 hover:text-white active:scale-95 transition text-xs lg:text-sm font-bold border border-white/15 shadow-lg">
             <i class="fa-solid fa-bars"></i>
-            <span class="hidden sm:inline">Menu</span>
+            <span>Menu</span>
         </button>
-        <a href="/leaderboard" title="Leaderboard" class="h-8 lg:h-11 px-3 rounded-xl glass-panel flex items-center gap-2 text-amber-300 hover:text-white active:scale-95 transition text-xs lg:text-sm font-bold border border-white/15">
+    </div>
+
+    <div id="top-slide-menu" class="fixed top-14 right-4 z-[60] closed glass-panel p-3 rounded-2xl flex items-center gap-2 border border-white/20 shadow-2xl">
+        <button id="btn-mods" title="Mods (Disabled)" class="h-9 px-3 rounded-xl bg-white/5 opacity-25 cursor-not-allowed flex items-center gap-2 text-indigo-300 text-xs font-bold" disabled>
+            <i class="fa-solid fa-puzzle-piece"></i>
+            <span class="hidden sm:inline">Mods</span>
+        </button>
+        <a href="/leaderboard" title="Leaderboard" class="h-9 px-3 rounded-xl bg-white/10 hover:bg-white/20 flex items-center gap-2 text-amber-300 transition text-xs font-bold">
             <i class="fa-solid fa-trophy"></i>
             <span class="hidden sm:inline">Leaderboard</span>
         </a>
-        <button id="btn-account" title="Account" class="h-8 lg:h-11 px-3 rounded-xl glass-panel flex items-center gap-2 text-cyan-300 hover:text-white active:scale-95 transition text-xs lg:text-sm font-bold border border-white/15">
-            <div id="account-avatar-container" class="w-6 h-6 rounded-full bg-cyan-500/30 flex items-center justify-center overflow-hidden border border-white/20">
-                <i id="account-icon-fallback" class="fa-solid fa-user text-xs"></i>
+        <button id="btn-account" title="Account" class="h-9 px-3 rounded-xl bg-white/10 hover:bg-white/20 flex items-center gap-2 text-cyan-300 transition text-xs font-bold">
+            <div id="account-avatar-container" class="w-5 h-5 rounded-full bg-cyan-500/30 flex items-center justify-center overflow-hidden border border-white/20">
+                <i id="account-icon-fallback" class="fa-solid fa-user text-[10px]"></i>
                 <img id="account-avatar-img" class="w-full h-full object-cover hidden" alt="Avatar">
             </div>
             <span id="account-btn-label">Account</span>
         </button>
     </div>
 
-    <div id="ui-backdrop" class="fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-50 hidden transition-opacity lg:hidden"></div>
-
     <div class="w-full h-full max-w-7xl flex flex-col lg:flex-row items-center justify-between p-4 lg:p-8 gap-6">
-        <div id="left-panel" class="side-panel side-panel-left flex flex-col w-72 h-full justify-between gap-4">
+        <div class="flex flex-col w-72 h-full justify-between gap-4">
             <div class="glass-panel p-6 rounded-3xl flex flex-col items-center justify-center text-center">
                 <div class="flex items-center gap-3 mb-2">
                     <div class="w-10 h-10 rounded-md color-cyan flex items-center justify-center shadow-lg border border-white/40"><i class="fa-solid fa-cubes text-xl text-white drop-shadow"></i></div>
@@ -164,7 +145,7 @@
             </div>
         </div>
 
-        <div id="right-panel" class="side-panel side-panel-right flex flex-col w-72 h-full justify-between gap-4">
+        <div class="flex flex-col w-72 h-full justify-between gap-4">
             <div class="glass-panel p-6 rounded-3xl flex flex-col gap-3">
                 <h3 class="text-base font-black text-slate-100 border-b border-white/10 pb-2 flex items-center gap-2"><i class="fa-solid fa-gamepad text-cyan-400"></i> Controls & Rules</h3>
                 <ul class="text-xs text-slate-300 space-y-3 leading-relaxed">
@@ -372,26 +353,21 @@
         const modalRestartBtn = document.getElementById('btn-modal-restart');
         const gameOverModal = document.getElementById('game-over-modal');
 
-        const btnToggleUi = document.getElementById('btn-toggle-ui');
-        const leftPanel = document.getElementById('left-panel');
-        const rightPanel = document.getElementById('right-panel');
-        const uiBackdrop = document.getElementById('ui-backdrop');
-        let uiPanelsOpen = false;
+        const btnToggleMenu = document.getElementById('btn-toggle-menu');
+        const topSlideMenu = document.getElementById('top-slide-menu');
 
-        function toggleUiPanels() {
-            uiPanelsOpen = !uiPanelsOpen;
-            if (window.innerWidth < 1024) {
-                leftPanel.classList.toggle('open', uiPanelsOpen);
-                rightPanel.classList.toggle('open', uiPanelsOpen);
-                uiBackdrop.classList.toggle('hidden', !uiPanelsOpen);
-            } else {
-                leftPanel.classList.toggle('hidden', !uiPanelsOpen);
-                rightPanel.classList.toggle('hidden', !uiPanelsOpen);
+        btnToggleMenu.addEventListener('click', (e) => {
+            e.stopPropagation();
+            topSlideMenu.classList.toggle('open');
+            topSlideMenu.classList.toggle('closed');
+        });
+
+        window.addEventListener('click', (e) => {
+            if (!topSlideMenu.contains(e.target) && !btnToggleMenu.contains(e.target)) {
+                topSlideMenu.classList.add('closed');
+                topSlideMenu.classList.remove('open');
             }
-        }
-
-        btnToggleUi.addEventListener('click', toggleUiPanels);
-        uiBackdrop.addEventListener('click', toggleUiPanels);
+        });
 
         const particleCanvas = document.getElementById('particle-canvas');
         const pCtx = particleCanvas.getContext('2d');
@@ -1116,230 +1092,19 @@
             if (authToken) fetchProfile();
         };
 
-        (function () {
-            const KEY = 'blast_block_mods';
-            const status = {};
-            let stale = false;
-
-            const readMods = () => {
-                try {
-                    const v = JSON.parse(localStorage.getItem(KEY));
-                    return Array.isArray(v) ? v : [];
-                } catch (e) { return []; }
-            };
-            let mods = readMods();
-            const saveMods = () => {
-                try { localStorage.setItem(KEY, JSON.stringify(mods)); } catch (e) {}
-            };
-
-            window.BlastBlock = {
-                shapes: SHAPES_CONFIG,
-                get grid() { return grid; },
-                get dock() { return dockShapes; },
-                get score() { return score; },
-                set score(v) { score = v; updateScoreDisplays(); },
-                get streak() { return streak; },
-                set streak(v) { streak = v; updateScoreDisplays(); },
-                addShape(matrix, color) { SHAPES_CONFIG.push({ matrix, color }); },
-                refresh() { renderGrid(); updateScoreDisplays(); },
-                newDock() { dockShapes = [null, null, null]; fillDockSlots(); },
-                restart: resetGame
-            };
-
-            const styleEl = document.createElement('style');
-            styleEl.textContent = '#mod-url{user-select:text;-webkit-user-select:text}';
-            document.head.appendChild(styleEl);
-
-            const openBtn = document.createElement('button');
-            openBtn.id = 'btn-mods';
-            openBtn.title = 'Mods';
-            // Dimmed button as requested
-            openBtn.className = 'fixed top-2 left-4 lg:top-4 lg:left-4 z-[60] w-8 h-8 lg:w-11 lg:h-11 rounded-xl glass-panel flex items-center justify-center text-indigo-300 hover:text-white opacity-40 hover:opacity-100 active:scale-95 transition';
-            openBtn.innerHTML = '<i class="fa-solid fa-puzzle-piece"></i>';
-            document.body.appendChild(openBtn);
-
-            const modal = document.createElement('div');
-            modal.className = 'fixed inset-0 z-[70] bg-slate-950/85 backdrop-blur-md items-center justify-center p-4 hidden';
-            modal.innerHTML = `
-                <div class="glass-panel w-full max-w-md max-h-[85vh] rounded-3xl p-6 flex flex-col gap-4 border border-white/20">
-                    <div class="flex items-center justify-between">
-                        <h2 class="text-xl font-black tracking-wider flex items-center gap-2"><i class="fa-solid fa-puzzle-piece text-indigo-400"></i> MODS</h2>
-                        <button id="mods-close" class="w-8 h-8 rounded-lg bg-white/10 hover:bg-white/20 flex items-center justify-center"><i class="fa-solid fa-xmark"></i></button>
-                    </div>
-                    <div class="flex gap-2">
-                        <input id="mod-url" type="url" placeholder="https://example.com/mod.js" class="flex-1 min-w-0 px-3 py-2 rounded-xl bg-slate-900/80 border border-white/15 text-sm text-white outline-none focus:border-cyan-400">
-                        <button id="mod-add" class="px-4 rounded-xl bg-gradient-to-r from-cyan-500 to-indigo-600 font-black text-sm active:scale-95 transition">ADD</button>
-                    </div>
-                    <p id="mod-msg" class="text-xs text-slate-400 min-h-[1rem]"></p>
-                    <div id="mod-list" class="flex flex-col gap-2 overflow-y-auto"></div>
-                    <div id="mod-reload" class="hidden items-center justify-between gap-2 p-3 rounded-2xl bg-amber-500/15 border border-amber-400/40 text-xs text-amber-300 font-bold">
-                        <span>Reload to fully unload disabled or removed mods.</span>
-                        <button id="mod-reload-btn" class="px-3 py-1.5 rounded-lg bg-amber-500/30 hover:bg-amber-500/50 font-black uppercase tracking-wider">Reload</button>
-                    </div>
-                    <p class="text-[11px] text-slate-500 leading-relaxed">Mods are scripts that run with full access to this page. Only add links you trust.</p>
-                </div>`;
-            document.body.appendChild(modal);
-
-            const urlInput = modal.querySelector('#mod-url');
-            const addBtn = modal.querySelector('#mod-add');
-            const msgEl = modal.querySelector('#mod-msg');
-            const listEl = modal.querySelector('#mod-list');
-            const reloadBar = modal.querySelector('#mod-reload');
-
-            const setMsg = (text, bad) => {
-                msgEl.textContent = text || '';
-                msgEl.className = 'text-xs min-h-[1rem] ' + (bad ? 'text-red-400' : 'text-slate-400');
-            };
-
-            const nameFromUrl = u => {
-                try {
-                    const x = new URL(u);
-                    return decodeURIComponent(x.pathname.split('/').filter(Boolean).pop() || x.hostname);
-                } catch (e) { return u; }
-            };
-
-            function inject(src, onOk, onFail) {
-                const s = document.createElement('script');
-                s.src = src;
-                s.dataset.mod = '1';
-                s.onload = onOk;
-                s.onerror = () => { s.remove(); onFail(); };
-                document.body.appendChild(s);
-            }
-
-            function runMod(mod) {
-                status[mod.id] = 'loading';
-                render();
-                const done = ok => { status[mod.id] = ok ? 'loaded' : 'failed'; render(); };
-                inject(mod.url, () => done(true), () => {
-                    fetch(mod.url)
-                        .then(r => { if (!r.ok) throw new Error('bad status'); return r.text(); })
-                        .then(t => {
-                            const blobUrl = URL.createObjectURL(new Blob([t], { type: 'text/javascript' }));
-                            inject(blobUrl, () => { URL.revokeObjectURL(blobUrl); done(true); }, () => done(false));
-                        })
-                        .catch(() => done(false));
-                });
-            }
-
-            function addMod() {
-                const raw = urlInput.value.trim();
-                let parsed;
-                try {
-                    parsed = new URL(raw);
-                    if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') throw new Error('protocol');
-                } catch (e) {
-                    setMsg('Enter a valid http(s) link to a .js file.', true);
-                    return;
-                }
-                if (mods.some(m => m.url === parsed.href)) {
-                    setMsg('That mod is already in your list.', true);
-                    return;
-                }
-                const mod = {
-                    id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
-                    url: parsed.href,
-                    name: nameFromUrl(parsed.href),
-                    enabled: true
-                };
-                mods.push(mod);
-                saveMods();
-                urlInput.value = '';
-                setMsg('');
-                runMod(mod);
-            }
-
-            function toggleMod(mod) {
-                mod.enabled = !mod.enabled;
-                saveMods();
-                if (mod.enabled && status[mod.id] !== 'loaded' && status[mod.id] !== 'loading') runMod(mod);
-                else render();
-            }
-
-            function removeMod(mod) {
-                if (status[mod.id] === 'loaded') stale = true;
-                mods = mods.filter(m => m.id !== mod.id);
-                delete status[mod.id];
-                saveMods();
-                render();
-            }
-
-            function render() {
-                listEl.innerHTML = '';
-                if (!mods.length) {
-                    const empty = document.createElement('p');
-                    empty.className = 'text-sm text-slate-400 text-center py-4';
-                    empty.textContent = 'No mods yet. Paste a link to a .js file above.';
-                    listEl.appendChild(empty);
-                }
-                mods.forEach(mod => {
-                    const st = mod.enabled ? (status[mod.id] || 'idle') : 'off';
-                    const row = document.createElement('div');
-                    row.className = 'flex items-center gap-3 p-3 rounded-2xl bg-slate-900/70 border border-white/10';
-
-                    const dot = document.createElement('span');
-                    const dotColors = {
-                        loaded: 'bg-green-400',
-                        loading: 'bg-amber-400 animate-pulse',
-                        failed: 'bg-red-500',
-                        off: 'bg-slate-600',
-                        idle: 'bg-slate-600'
-                    };
-                    dot.className = 'w-2.5 h-2.5 rounded-full shrink-0 ' + dotColors[st];
-
-                    const info = document.createElement('div');
-                    info.className = 'flex-1 min-w-0';
-                    const nameEl = document.createElement('div');
-                    nameEl.className = 'truncate font-bold text-sm';
-                    nameEl.textContent = mod.name;
-                    const urlEl = document.createElement('div');
-                    urlEl.className = 'truncate text-[11px] ' + (st === 'failed' ? 'text-red-400' : 'text-slate-400');
-                    urlEl.textContent = st === 'failed' ? 'Failed to load. Check the link.' : mod.url;
-                    urlEl.title = mod.url;
-                    info.append(nameEl, urlEl);
-
-                    const toggle = document.createElement('button');
-                    toggle.className = 'w-10 h-5 rounded-full p-0.5 flex items-center shrink-0 transition-colors ' + (mod.enabled ? 'bg-indigo-600' : 'bg-slate-700');
-                    const knob = document.createElement('div');
-                    knob.className = 'w-4 h-4 bg-white rounded-full shadow transition-transform ' + (mod.enabled ? 'translate-x-5' : 'translate-x-0');
-                    toggle.appendChild(knob);
-                    toggle.addEventListener('click', () => toggleMod(mod));
-
-                    const del = document.createElement('button');
-                    del.className = 'w-8 h-8 rounded-lg bg-red-500/15 hover:bg-red-500/30 text-red-400 flex items-center justify-center shrink-0';
-                    del.innerHTML = '<i class="fa-solid fa-trash text-xs"></i>';
-                    del.addEventListener('click', () => removeMod(mod));
-
-                    row.append(dot, info, toggle, del);
-                    listEl.appendChild(row);
-                });
-
-                const needsReload = stale || mods.some(m => !m.enabled && status[m.id] === 'loaded');
-                reloadBar.classList.toggle('hidden', !needsReload);
-                reloadBar.classList.toggle('flex', needsReload);
-            }
-
-            function openModal() {
-                render();
-                modal.classList.remove('hidden');
-                modal.classList.add('flex');
-            }
-
-            function closeModal() {
-                modal.classList.add('hidden');
-                modal.classList.remove('flex');
-            }
-
-            openBtn.addEventListener('click', openModal);
-            modal.querySelector('#mods-close').addEventListener('click', closeModal);
-            modal.addEventListener('click', e => { if (e.target === modal) closeModal(); });
-            addBtn.addEventListener('click', addMod);
-            urlInput.addEventListener('keydown', e => { if (e.key === 'Enter') addMod(); });
-            modal.querySelector('#mod-reload-btn').addEventListener('click', () => location.reload());
-            window.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
-
-            window.addEventListener('load', () => { mods.filter(m => m.enabled).forEach(runMod); });
-        })();
+        window.BlastBlock = {
+            shapes: SHAPES_CONFIG,
+            get grid() { return grid; },
+            get dock() { return dockShapes; },
+            get score() { return score; },
+            set score(v) { score = v; updateScoreDisplays(); },
+            get streak() { return streak; },
+            set streak(v) { streak = v; updateScoreDisplays(); },
+            addShape(matrix, color) { SHAPES_CONFIG.push({ matrix, color }); },
+            refresh() { renderGrid(); updateScoreDisplays(); },
+            newDock() { dockShapes = [null, null, null]; fillDockSlots(); },
+            restart: resetGame
+        };
     </script>
 </body>
 </html>
