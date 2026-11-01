@@ -7,7 +7,9 @@ const supabase = createClient(
 );
 
 export default async function handler(req, res) {
-  res.setHeader('Access-Control-Allow-Origin', 'https://blastblock.space');
+  if (/^https:\/\/([a-z0-9-]+\.)?blastblock\.space$/i.test(origin || '')) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+  }
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   res.setHeader('Access-Control-Allow-Credentials', 'true');
