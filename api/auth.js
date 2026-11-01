@@ -1,13 +1,14 @@
-
 import { createClient } from '@supabase/supabase-js';
 
 const supabase = createClient(
   process.env.SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
+  process.env.SUPABASE_ANON_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
 export default async function handler(req, res) {
-  if (/^https:\/\/([a-z0-9-]+\.)?blastblock\.space$/i.test(origin || '')) {
+  const origin = req.headers.origin || '';
+
+  if (/^https:\/\/([a-z0-9-]+\.)?blastblock\.space$/i.test(origin)) {
     res.setHeader('Access-Control-Allow-Origin', origin);
   }
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -23,7 +24,7 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const { action, email, password, username } = req.body;
+  const { action, email, password, username } = req.body || {};
 
   try {
     if (action === 'signup') {
@@ -88,7 +89,7 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'Invalid action' });
 
   } catch (err) {
-    console.log(err);
-    return res.status(400).json({ error: err.message });
+    console.error('API Error:', err);
+    return res.status(400).json({ error: err.message || 'Internal server error' });
   }
 }
