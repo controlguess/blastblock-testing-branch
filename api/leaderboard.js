@@ -26,10 +26,9 @@ export default async function handler(req, res) {
       return res.status(405).json({ error: 'Method not allowed' });
     }
 
-    // Fetch top 50 players by high_score and highest_streak
     const { data, error } = await supabase
       .from('profiles')
-      .select('id, username, avatar_url, high_score, highest_streak')
+      .select('id, username, avatar_url, high_score, highest_streak, active_frame')
       .order('high_score', { ascending: false })
       .limit(50);
 
@@ -37,7 +36,6 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: error.message });
     }
 
-    // Cache responses at the edge for 15 seconds to prevent spamming Supabase
     res.setHeader('Cache-Control', 's-maxage=15, stale-while-revalidate=30');
 
     return res.status(200).json({
