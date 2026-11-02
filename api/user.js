@@ -102,7 +102,6 @@ export default async function handler(req, res) {
         });
       }
 
-      // General profile / shop purchase updates
       const updates = {
         id: user.id,
         updated_at: new Date().toISOString()
