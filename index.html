@@ -18,7 +18,14 @@
             -webkit-user-select: none;
             touch-action: manipulation;
             background: radial-gradient(circle at center, #1b2559 0%, #090d20 100%);
+            transition: background 0.5s ease;
         }
+
+        /* Themes */
+        body.theme-neon { background: radial-gradient(circle at center, #2d0036 0%, #050014 100%); }
+        body.theme-emerald { background: radial-gradient(circle at center, #064e3b 0%, #022c22 100%); }
+        body.theme-sunset { background: radial-gradient(circle at center, #7c2d12 0%, #450a0a 100%); }
+
         .block-cell {
             border-radius: 2px;
             box-shadow: inset 2px 2px 0px rgba(255, 255, 255, 0.45), inset -2px -2px 0px rgba(0, 0, 0, 0.4), 0 2px 4px rgba(0,0,0,0.3);
@@ -51,6 +58,12 @@
             opacity: 1;
             pointer-events: auto;
         }
+
+        /* Profile Frame Styles */
+        .frame-none { border: 2px solid rgba(255, 255, 255, 0.2); }
+        .frame-gold { border: 3px solid #f59e0b !important; box-shadow: 0 0 10px rgba(245, 158, 11, 0.8); }
+        .frame-neon { border: 3px solid #ec4899 !important; box-shadow: 0 0 10px rgba(236, 72, 153, 0.8); }
+        .frame-diamond { border: 3px solid #06b6d4 !important; box-shadow: 0 0 12px rgba(6, 182, 212, 0.9); }
     </style>
 </head>
 <body class="h-screen w-screen overflow-hidden text-white flex justify-center items-center">
@@ -63,6 +76,10 @@
     </div>
 
     <div id="top-slide-menu" class="fixed top-14 right-4 z-[60] closed glass-panel p-3 rounded-2xl flex items-center gap-2 border border-white/20 shadow-2xl">
+        <button id="btn-shop" title="Shop" class="h-9 px-3 rounded-xl bg-white/10 hover:bg-white/20 flex items-center gap-2 text-emerald-300 transition text-xs font-bold">
+            <i class="fa-solid fa-store"></i>
+            <span class="hidden sm:inline">Shop</span>
+        </button>
         <button id="btn-mods" title="Mods (Disabled)" class="h-9 px-3 rounded-xl bg-white/5 opacity-25 cursor-not-allowed flex items-center gap-2 text-indigo-300 text-xs font-bold" disabled>
             <i class="fa-solid fa-puzzle-piece"></i>
             <span class="hidden sm:inline">Mods</span>
@@ -72,7 +89,7 @@
             <span class="hidden sm:inline">Leaderboard</span>
         </a>
         <button id="btn-account" title="Account" class="h-9 px-3 rounded-xl bg-white/10 hover:bg-white/20 flex items-center gap-2 text-cyan-300 transition text-xs font-bold">
-            <div id="account-avatar-container" class="w-5 h-5 rounded-full bg-cyan-500/30 flex items-center justify-center overflow-hidden border border-white/20">
+            <div id="account-avatar-container" class="w-5 h-5 rounded-full bg-cyan-500/30 flex items-center justify-center overflow-hidden frame-none">
                 <i id="account-icon-fallback" class="fa-solid fa-user text-[10px]"></i>
                 <img id="account-avatar-img" class="w-full h-full object-cover hidden" alt="Avatar">
             </div>
@@ -91,6 +108,10 @@
             </div>
 
             <div class="glass-panel p-6 rounded-3xl flex flex-col gap-4">
+                <div class="flex justify-between items-center border-b border-white/10 pb-3">
+                    <span class="text-slate-300 text-sm font-semibold flex items-center gap-2"><i class="fa-solid fa-coins text-yellow-400"></i> Coins</span>
+                    <span id="stat-coins" class="text-2xl font-black text-yellow-300">0</span>
+                </div>
                 <div class="flex justify-between items-center border-b border-white/10 pb-3">
                     <span class="text-slate-300 text-sm font-semibold flex items-center gap-2"><i class="fa-solid fa-fire text-amber-400"></i> Max Streak</span>
                     <span id="stat-max-streak" class="text-2xl font-black text-amber-300">0</span>
@@ -164,6 +185,33 @@
 
     <div id="drag-ghost"></div>
 
+    <!-- Shop Modal -->
+    <div id="shop-modal" class="fixed inset-0 bg-slate-950/85 backdrop-blur-md z-[70] flex items-center justify-center p-4 hidden">
+        <div class="glass-panel w-full max-w-2xl rounded-3xl p-6 flex flex-col gap-4 border border-white/20 max-h-[90vh] overflow-hidden">
+            <div class="flex items-center justify-between border-b border-white/10 pb-3">
+                <h2 class="text-xl font-black tracking-wider flex items-center gap-2 text-emerald-400">
+                    <i class="fa-solid fa-store"></i> BLAST SHOP
+                </h2>
+                <div class="flex items-center gap-4">
+                    <div class="flex items-center gap-1.5 bg-slate-900/80 px-3 py-1 rounded-full border border-yellow-500/30">
+                        <i class="fa-solid fa-coins text-yellow-400 text-sm"></i>
+                        <span id="shop-coins-display" class="font-black text-yellow-300 text-sm">0</span>
+                    </div>
+                    <button id="shop-close" class="w-8 h-8 rounded-lg bg-white/10 hover:bg-white/20 flex items-center justify-center"><i class="fa-solid fa-xmark"></i></button>
+                </div>
+            </div>
+
+            <div class="flex bg-slate-900/80 p-1 rounded-xl border border-white/10 shrink-0">
+                <button id="shop-tab-themes" class="flex-1 py-1.5 font-bold text-xs rounded-lg bg-emerald-500/30 text-emerald-300 transition">Themes</button>
+                <button id="shop-tab-frames" class="flex-1 py-1.5 font-bold text-xs text-slate-400 rounded-lg transition">Profile Frames</button>
+            </div>
+
+            <div id="shop-items-container" class="overflow-y-auto pr-1 flex-1 grid grid-cols-1 md:grid-cols-2 gap-3 py-2">
+                <!-- Dynamic Shop Items Rendered Here -->
+            </div>
+        </div>
+    </div>
+
     <div id="game-over-modal" class="fixed inset-0 bg-slate-950/85 backdrop-blur-md z-50 flex items-center justify-center p-4 opacity-0 pointer-events-none transition-opacity duration-300">
         <div class="glass-panel max-w-md w-full p-8 rounded-3xl flex flex-col items-center text-center shadow-2xl border border-white/20 scale-90 transition-transform duration-300" id="game-over-content">
             <div class="w-20 h-20 rounded-2xl bg-red-500/20 border-2 border-red-500/50 flex items-center justify-center mb-4 text-red-400 text-4xl shadow-lg"><i class="fa-solid fa-ban"></i></div>
@@ -204,7 +252,7 @@
 
             <div id="auth-logged-in-view" class="flex flex-col gap-4 hidden">
                 <div class="flex items-center gap-4 bg-slate-900/80 p-4 rounded-2xl border border-white/10">
-                    <div class="relative w-16 h-16 rounded-full overflow-hidden bg-slate-800 border-2 border-cyan-400 shrink-0 flex items-center justify-center">
+                    <div id="detail-avatar-container" class="relative w-16 h-16 rounded-full overflow-hidden bg-slate-800 frame-none shrink-0 flex items-center justify-center">
                         <img id="detail-avatar-img" class="w-full h-full object-cover hidden" alt="Avatar">
                         <i id="detail-avatar-fallback" class="fa-solid fa-user text-2xl text-slate-400"></i>
                     </div>
@@ -252,16 +300,43 @@
         const GRID_SIZE = 8;
         let score = 0;
         let highScore = parseInt(localStorage.getItem('block_blast_highscore') || '0', 10);
+        let coins = parseInt(localStorage.getItem('block_blast_coins') || '0', 10);
         let streak = 0;
         let maxStreak = 0;
         let totalLinesCleared = 0;
         let totalBlocksPlaced = 0;
         let soundEnabled = true;
 
+        let activeTheme = localStorage.getItem('block_blast_theme') || 'default';
+        let activeFrame = localStorage.getItem('block_blast_frame') || 'frame-none';
+
         let grid = Array(GRID_SIZE).fill(null).map(() => Array(GRID_SIZE).fill(null));
         let dockShapes = [null, null, null];
         let draggingSlotIndex = null;
         let activeDragShape = null;
+
+        let SHOP_DATA = { themes: [], frames: [] };
+
+        async function fetchShopCatalog() {
+            try {
+                const res = await fetch('https://testing.blastblock.space/api/shop');
+                const json = await res.json();
+                if (json.success) {
+                    SHOP_DATA = json.shop;
+                }
+            } catch (err) {
+                SHOP_DATA = {
+                    themes: [
+                        { id: 'default', name: 'Deep Space', cost: 0, class: '' },
+                        { id: 'neon', name: 'Cyber Neon', cost: 150, class: 'theme-neon' }
+                    ],
+                    frames: [
+                        { id: 'frame-none', name: 'Standard Border', cost: 0, class: 'frame-none' },
+                        { id: 'frame-gold', name: 'Golden Aura', cost: 200, class: 'frame-gold' }
+                    ]
+                };
+            }
+        }
 
         const SHAPES_CONFIG = [
             { matrix: [[1]], color: 'color-cyan' },
@@ -343,6 +418,7 @@
         const scoreDisplay = document.getElementById('score-display');
         const highScoreDisplay = document.getElementById('high-score-display');
         const streakDisplay = document.getElementById('streak-display');
+        const statCoins = document.getElementById('stat-coins');
         const statMaxStreak = document.getElementById('stat-max-streak');
         const statLinesCleared = document.getElementById('stat-lines-cleared');
         const statBlocksPlaced = document.getElementById('stat-blocks-placed');
@@ -355,6 +431,15 @@
 
         const btnToggleMenu = document.getElementById('btn-toggle-menu');
         const topSlideMenu = document.getElementById('top-slide-menu');
+        const btnShop = document.getElementById('btn-shop');
+        const shopModal = document.getElementById('shop-modal');
+        const shopClose = document.getElementById('shop-close');
+        const shopTabThemes = document.getElementById('shop-tab-themes');
+        const shopTabFrames = document.getElementById('shop-tab-frames');
+        const shopItemsContainer = document.getElementById('shop-items-container');
+        const shopCoinsDisplay = document.getElementById('shop-coins-display');
+
+        let activeShopTab = 'themes';
 
         btnToggleMenu.addEventListener('click', (e) => {
             e.stopPropagation();
@@ -368,6 +453,114 @@
                 topSlideMenu.classList.remove('open');
             }
         });
+
+        btnShop.addEventListener('click', () => {
+            shopModal.classList.remove('hidden');
+            renderShopItems();
+        });
+        shopClose.addEventListener('click', () => shopModal.classList.add('hidden'));
+        shopModal.addEventListener('click', e => { if (e.target === shopModal) shopModal.classList.add('hidden'); });
+
+        shopTabThemes.addEventListener('click', () => {
+            activeShopTab = 'themes';
+            shopTabThemes.className = 'flex-1 py-1.5 font-bold text-xs rounded-lg bg-emerald-500/30 text-emerald-300 transition';
+            shopTabFrames.className = 'flex-1 py-1.5 font-bold text-xs text-slate-400 rounded-lg transition';
+            renderShopItems();
+        });
+
+        shopTabFrames.addEventListener('click', () => {
+            activeShopTab = 'frames';
+            shopTabFrames.className = 'flex-1 py-1.5 font-bold text-xs rounded-lg bg-emerald-500/30 text-emerald-300 transition';
+            shopTabThemes.className = 'flex-1 py-1.5 font-bold text-xs text-slate-400 rounded-lg transition';
+            renderShopItems();
+        });
+
+        function renderShopItems() {
+            shopCoinsDisplay.textContent = coins.toLocaleString();
+            shopItemsContainer.innerHTML = '';
+
+            const items = SHOP_DATA[activeShopTab];
+            const unlockedList = userProfile?.unlocked_items || [];
+
+            items.forEach(item => {
+                const isOwned = item.cost === 0 || unlockedList.includes(item.id);
+                const isEquipped = activeShopTab === 'themes' ? activeTheme === item.id : activeFrame === item.id;
+
+                const card = document.createElement('div');
+                card.className = 'bg-slate-900/80 p-4 rounded-2xl border border-white/10 flex flex-col justify-between gap-3';
+                card.innerHTML = `
+                    <div class="flex flex-col gap-1">
+                        <span class="font-bold text-sm text-white">${item.name}</span>
+                        <span class="text-xs text-slate-400">${isOwned ? 'Owned' : `${item.cost} Coins`}</span>
+                    </div>
+                    <button class="shop-item-btn w-full py-2 rounded-xl text-xs font-black uppercase tracking-wider transition ${
+                        isEquipped 
+                            ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 cursor-default'
+                            : isOwned 
+                                ? 'bg-cyan-500/30 hover:bg-cyan-500/50 text-cyan-300 border border-cyan-400/50'
+                                : coins >= item.cost 
+                                    ? 'bg-amber-500/30 hover:bg-amber-500/50 text-amber-300 border border-amber-400/50'
+                                    : 'bg-slate-800 text-slate-500 border border-white/5 cursor-not-allowed'
+                    }">
+                        ${isEquipped ? 'EQUIPPED' : isOwned ? 'EQUIP' : 'BUY'}
+                    </button>
+                `;
+
+                const btn = card.querySelector('.shop-item-btn');
+                if (!isEquipped) {
+                    btn.addEventListener('click', () => handleShopAction(item, isOwned));
+                }
+
+                shopItemsContainer.appendChild(card);
+            });
+        }
+
+        async function handleShopAction(item, isOwned) {
+            if (!isOwned) {
+                if (coins < item.cost) return;
+                coins -= item.cost;
+                localStorage.setItem('block_blast_coins', coins.toString());
+                const unlocked = userProfile?.unlocked_items || [];
+                unlocked.push(item.id);
+                if (userProfile) userProfile.unlocked_items = unlocked;
+            }
+
+            if (activeShopTab === 'themes') {
+                activeTheme = item.id;
+                localStorage.setItem('block_blast_theme', activeTheme);
+                applyTheme();
+            } else {
+                activeFrame = item.id;
+                localStorage.setItem('block_blast_frame', activeFrame);
+                applyFrame();
+            }
+
+            updateScoreDisplays();
+            renderShopItems();
+            await syncProfileData({
+                coins: coins,
+                active_theme: activeTheme,
+                active_frame: activeFrame,
+                unlocked_items: userProfile?.unlocked_items || []
+            });
+        }
+
+        function applyTheme() {
+            document.body.className = 'h-screen w-screen overflow-hidden text-white flex justify-center items-center ' + (activeTheme !== 'default' ? `theme-${activeTheme}` : '');
+        }
+
+        function applyFrame() {
+            const avatarBoxMenu = document.getElementById('account-avatar-container');
+            const avatarBoxDetail = document.getElementById('detail-avatar-container');
+
+            ['frame-none', 'frame-gold', 'frame-neon', 'frame-diamond'].forEach(f => {
+                avatarBoxMenu.classList.remove(f);
+                if (avatarBoxDetail) avatarBoxDetail.classList.remove(f);
+            });
+
+            avatarBoxMenu.classList.add(activeFrame);
+            if (avatarBoxDetail) avatarBoxDetail.classList.add(activeFrame);
+        }
 
         const particleCanvas = document.getElementById('particle-canvas');
         const pCtx = particleCanvas.getContext('2d');
@@ -575,6 +768,9 @@
                 if (streak > maxStreak) maxStreak = streak;
                 totalLinesCleared += linesCleared;
 
+                coins += linesCleared * 10 + (streak > 1 ? streak * 5 : 0);
+                localStorage.setItem('block_blast_coins', coins.toString());
+
                 fullRows.forEach(r => { for (let c = 0; c < GRID_SIZE; c++) createParticlesAtCell(r, c); });
                 fullCols.forEach(c => { for (let r = 0; r < GRID_SIZE; r++) createParticlesAtCell(r, c); });
 
@@ -645,6 +841,7 @@
 
             highScoreDisplay.textContent = highScore.toLocaleString();
             streakDisplay.textContent = streak;
+            statCoins.textContent = coins.toLocaleString();
             statMaxStreak.textContent = maxStreak;
             statLinesCleared.textContent = totalLinesCleared;
             statBlocksPlaced.textContent = totalBlocksPlaced;
@@ -702,7 +899,8 @@
                     body: JSON.stringify({
                         action: 'submit_game',
                         game_score: finalScore,
-                        game_streak: gameMaxStreak
+                        game_streak: gameMaxStreak,
+                        coins: coins
                     })
                 });
                 const json = await res.json();
@@ -914,8 +1112,26 @@
         const btnLogout = document.getElementById('btn-logout');
 
         function updateUIState() {
+            applyTheme();
+            applyFrame();
+
             if (authToken && userProfile) {
                 accountBtnLabel.textContent = userProfile.username || 'User';
+                coins = userProfile.coins !== undefined ? userProfile.coins : coins;
+                localStorage.setItem('block_blast_coins', coins.toString());
+
+                if (userProfile.active_theme) {
+                    activeTheme = userProfile.active_theme;
+                    localStorage.setItem('block_blast_theme', activeTheme);
+                    applyTheme();
+                }
+
+                if (userProfile.active_frame) {
+                    activeFrame = userProfile.active_frame;
+                    localStorage.setItem('block_blast_frame', activeFrame);
+                    applyFrame();
+                }
+
                 if (userProfile.avatar_url) {
                     accountAvatarImg.src = userProfile.avatar_url;
                     accountAvatarImg.classList.remove('hidden');
@@ -949,6 +1165,7 @@
                 authLoggedOutView.classList.remove('hidden');
                 authLoggedInView.classList.add('hidden');
             }
+            updateScoreDisplays();
         }
 
         async function fetchProfile() {
@@ -964,7 +1181,6 @@
                     if (userProfile.high_score > highScore) {
                         highScore = userProfile.high_score;
                         localStorage.setItem('block_blast_highscore', highScore.toString());
-                        updateScoreDisplays();
                     }
                     updateUIState();
                 }
@@ -1088,6 +1304,7 @@
             fillDockSlots();
             initDragControls();
             updateScoreDisplays();
+            await fetchShopCatalog();
             updateUIState();
             if (authToken) fetchProfile();
         };
@@ -1100,6 +1317,8 @@
             set score(v) { score = v; updateScoreDisplays(); },
             get streak() { return streak; },
             set streak(v) { streak = v; updateScoreDisplays(); },
+            get coins() { return coins; },
+            set coins(v) { coins = v; updateScoreDisplays(); },
             addShape(matrix, color) { SHAPES_CONFIG.push({ matrix, color }); },
             refresh() { renderGrid(); updateScoreDisplays(); },
             newDock() { dockShapes = [null, null, null]; fillDockSlots(); },
