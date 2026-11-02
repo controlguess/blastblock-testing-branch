@@ -32,7 +32,6 @@ export default async function handler(req, res) {
       return res.status(401).json({ error: 'Unauthorized: Missing token' });
     }
 
-    // Safely fetch user with error handling
     const { data: { user }, error: authErr } = await supabase.auth.getUser(token);
 
     if (authErr || !user) {
@@ -58,12 +57,22 @@ export default async function handler(req, res) {
     }
 
     if (req.method === 'POST') {
-      const { username, avatar_url, action, game_score, game_streak } = req.body || {};
+      const { 
+        username, 
+        avatar_url, 
+        action, 
+        game_score, 
+        game_streak, 
+        coins, 
+        active_theme, 
+        active_frame, 
+        unlocked_items 
+      } = req.body || {};
 
       if (action === 'submit_game') {
         const { data: existingProfile } = await supabase
           .from('profiles')
-          .select('high_score, highest_streak')
+          .select('high_score, highest_streak, coins')
           .eq('id', user.id)
           .single();
 
@@ -76,6 +85,8 @@ export default async function handler(req, res) {
           highest_streak: Math.max(currentMaxStreak, Number(game_streak) || 0),
           updated_at: new Date().toISOString()
         };
+
+        if (coins !== undefined) updates.coins = Number(coins);
 
         const { data, error } = await supabase
           .from('profiles')
@@ -91,6 +102,7 @@ export default async function handler(req, res) {
         });
       }
 
+      // General profile / shop purchase updates
       const updates = {
         id: user.id,
         updated_at: new Date().toISOString()
@@ -98,6 +110,10 @@ export default async function handler(req, res) {
 
       if (username !== undefined) updates.username = username;
       if (avatar_url !== undefined) updates.avatar_url = avatar_url;
+      if (coins !== undefined) updates.coins = Number(coins);
+      if (active_theme !== undefined) updates.active_theme = active_theme;
+      if (active_frame !== undefined) updates.active_frame = active_frame;
+      if (unlocked_items !== undefined) updates.unlocked_items = unlocked_items;
 
       const { data, error } = await supabase
         .from('profiles')
