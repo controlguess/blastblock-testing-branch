@@ -201,9 +201,16 @@
                 </div>
             </div>
 
+            <!-- Category Tabs: Themes vs Frames -->
             <div class="flex bg-slate-900/80 p-1 rounded-xl border border-white/10 shrink-0">
                 <button id="shop-tab-themes" class="flex-1 py-1.5 font-bold text-xs rounded-lg bg-emerald-500/30 text-emerald-300 transition">Themes</button>
                 <button id="shop-tab-frames" class="flex-1 py-1.5 font-bold text-xs text-slate-400 rounded-lg transition">Profile Frames</button>
+            </div>
+
+            <!-- Sub-section Tabs: Store Catalog vs My Inventory -->
+            <div class="flex bg-slate-900/50 p-1 rounded-xl border border-white/10 shrink-0 text-xs">
+                <button id="shop-subtab-store" class="flex-1 py-1 font-bold rounded-lg bg-cyan-500/30 text-cyan-300 transition">Store Catalog</button>
+                <button id="shop-subtab-inventory" class="flex-1 py-1 font-bold rounded-lg text-slate-400 transition">My Inventory</button>
             </div>
 
             <div id="shop-items-container" class="overflow-y-auto pr-1 flex-1 grid grid-cols-1 md:grid-cols-2 gap-3 py-2">
@@ -317,6 +324,22 @@
 
         let SHOP_DATA = { themes: [], frames: [] };
 
+        // Fallback dictionary ensuring rotated-out items are never lost from inventory
+        const SHOP_FALLBACKS = {
+            themes: {
+                'default': { id: 'default', name: 'Deep Space', cost: 0, class: '' },
+                'neon': { id: 'neon', name: 'Cyber Neon', cost: 150, class: 'theme-neon' },
+                'emerald': { id: 'emerald', name: 'Emerald Forest', cost: 300, class: 'theme-emerald' },
+                'sunset': { id: 'sunset', name: 'Sunset Glow', cost: 500, class: 'theme-sunset' }
+            },
+            frames: {
+                'frame-none': { id: 'frame-none', name: 'Standard Border', cost: 0, class: 'frame-none' },
+                'frame-gold': { id: 'frame-gold', name: 'Golden Aura', cost: 200, class: 'frame-gold' },
+                'frame-neon': { id: 'frame-neon', name: 'Pink Neon Ring', cost: 350, class: 'frame-neon' },
+                'frame-diamond': { id: 'frame-diamond', name: 'Diamond Glow', cost: 600, class: 'frame-diamond' }
+            }
+        };
+
         async function fetchShopCatalog() {
             try {
                 const res = await fetch('https://testing.blastblock.space/api/shop');
@@ -326,14 +349,8 @@
                 }
             } catch (err) {
                 SHOP_DATA = {
-                    themes: [
-                        { id: 'default', name: 'Deep Space', cost: 0, class: '' },
-                        { id: 'neon', name: 'Cyber Neon', cost: 150, class: 'theme-neon' }
-                    ],
-                    frames: [
-                        { id: 'frame-none', name: 'Standard Border', cost: 0, class: 'frame-none' },
-                        { id: 'frame-gold', name: 'Golden Aura', cost: 200, class: 'frame-gold' }
-                    ]
+                    themes: Object.values(SHOP_FALLBACKS.themes),
+                    frames: Object.values(SHOP_FALLBACKS.frames)
                 };
             }
         }
@@ -436,10 +453,13 @@
         const shopClose = document.getElementById('shop-close');
         const shopTabThemes = document.getElementById('shop-tab-themes');
         const shopTabFrames = document.getElementById('shop-tab-frames');
+        const shopSubtabStore = document.getElementById('shop-subtab-store');
+        const shopSubtabInventory = document.getElementById('shop-subtab-inventory');
         const shopItemsContainer = document.getElementById('shop-items-container');
         const shopCoinsDisplay = document.getElementById('shop-coins-display');
 
         let activeShopTab = 'themes';
+        let activeShopSubTab = 'store';
 
         btnToggleMenu.addEventListener('click', (e) => {
             e.stopPropagation();
@@ -475,14 +495,51 @@
             renderShopItems();
         });
 
+        shopSubtabStore.addEventListener('click', () => {
+            activeShopSubTab = 'store';
+            shopSubtabStore.className = 'flex-1 py-1 font-bold rounded-lg bg-cyan-500/30 text-cyan-300 transition';
+            shopSubtabInventory.className = 'flex-1 py-1 font-bold rounded-lg text-slate-400 transition';
+            renderShopItems();
+        });
+
+        shopSubtabInventory.addEventListener('click', () => {
+            activeShopSubTab = 'inventory';
+            shopSubtabInventory.className = 'flex-1 py-1 font-bold rounded-lg bg-cyan-500/30 text-cyan-300 transition';
+            shopSubtabStore.className = 'flex-1 py-1 font-bold rounded-lg text-slate-400 transition';
+            renderShopItems();
+        });
+
         function renderShopItems() {
             shopCoinsDisplay.textContent = coins.toLocaleString();
             shopItemsContainer.innerHTML = '';
 
-            const items = SHOP_DATA[activeShopTab];
-            const unlockedList = userProfile?.unlocked_items || [];
+            const catalogItems = SHOP_DATA[activeShopTab] || [];
+            const unlockedList = userProfile?.unlocked_items || ['default', 'frame-none'];
 
-            items.forEach(item => {
+            let itemsToRender = [];
+
+            if (activeShopSubTab === 'store') {
+                itemsToRender = catalogItems.filter(item => item.cost > 0 && !unlockedList.includes(item.id));
+            } else {
+                const fallbackMap = SHOP_FALLBACKS[activeShopTab];
+                itemsToRender = unlockedList.map(id => {
+                    let found = catalogItems.find(i => i.id === id);
+                    if (!found && fallbackMap[id]) found = fallbackMap[id];
+                    return found;
+                }).filter(Boolean);
+            }
+
+            if (itemsToRender.length === 0) {
+                shopItemsContainer.innerHTML = `
+                    <div class="col-span-full py-12 flex flex-col items-center justify-center text-center text-slate-400 gap-2">
+                        <i class="fa-solid fa-box-open text-3xl text-slate-500"></i>
+                        <p class="text-xs font-semibold">${activeShopSubTab === 'store' ? 'No new items available in store right now.' : 'You have not unlocked any items in this category yet.'}</p>
+                    </div>
+                `;
+                return;
+            }
+
+            itemsToRender.forEach(item => {
                 const isOwned = item.cost === 0 || unlockedList.includes(item.id);
                 const isEquipped = activeShopTab === 'themes' ? activeTheme === item.id : activeFrame === item.id;
 
@@ -520,8 +577,8 @@
                 if (coins < item.cost) return;
                 coins -= item.cost;
                 localStorage.setItem('block_blast_coins', coins.toString());
-                const unlocked = userProfile?.unlocked_items || [];
-                unlocked.push(item.id);
+                const unlocked = userProfile?.unlocked_items || ['default', 'frame-none'];
+                if (!unlocked.includes(item.id)) unlocked.push(item.id);
                 if (userProfile) userProfile.unlocked_items = unlocked;
             }
 
@@ -537,11 +594,13 @@
 
             updateScoreDisplays();
             renderShopItems();
+
+            // FORCEFUL DB SYNC ON PURCHASE/EQUIP
             await syncProfileData({
                 coins: coins,
                 active_theme: activeTheme,
                 active_frame: activeFrame,
-                unlocked_items: userProfile?.unlocked_items || []
+                unlocked_items: userProfile?.unlocked_items || ['default', 'frame-none']
             });
         }
 
