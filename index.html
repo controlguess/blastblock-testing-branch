@@ -584,15 +584,49 @@
         }
 
         async function handleShopAction(item, isOwned) {
-            if (!isOwned) {
-                if (coins < item.cost) return;
-                coins -= item.cost;
-                localStorage.setItem('block_blast_coins', coins.toString());
-                const unlocked = userProfile?.unlocked_items || ['default', 'frame-none'];
-                if (!unlocked.includes(item.id)) unlocked.push(item.id);
-                if (userProfile) userProfile.unlocked_items = unlocked;
+            previewTheme = null;
+            previewFrame = null;
+        
+            const token = localStorage.getItem('blast_block_token');
+            if (!token) {
+                alert('Log in to buy or equip shop items.');
+                return;
             }
-
+        
+            if (!isOwned) {
+                if (item.cost < 0 || coins < item.cost) return;
+        
+                try {
+                    const res = await fetch('/api/user', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${token}`
+                        },
+                        body: JSON.stringify({
+                            action: 'buy_item',
+                            itemId: item.id,
+                            itemType: activeShopTab
+                        })
+                    });
+        
+                    const json = await res.json();
+                    if (!res.ok || !json.success) {
+                        alert(json.error || 'Purchase failed');
+                        await fetchProfile();
+                        renderShopItems();
+                        return;
+                    }
+        
+                    userProfile = { ...userProfile, ...json.profile };
+                    localStorage.setItem('blast_block_profile', JSON.stringify(userProfile));
+                    coins = json.profile.coins;
+                    localStorage.setItem('block_blast_coins', coins.toString());
+                } catch (err) {
+                    return;
+                }
+            }
+        
             if (activeShopTab === 'themes') {
                 activeTheme = item.id;
                 localStorage.setItem('block_blast_theme', activeTheme);
@@ -602,16 +636,16 @@
                 localStorage.setItem('block_blast_frame', activeFrame);
                 applyFrame();
             }
-
-            updateScoreDisplays();
+        
+            updateUIState();
             renderShopItems();
-
-            await syncProfileData({
-                coins: coins,
-                active_theme: activeTheme,
-                active_frame: activeFrame,
-                unlocked_items: userProfile?.unlocked_items || ['default', 'frame-none']
-            });
+        
+            if (isOwned) {
+                await syncProfileData({
+                    active_theme: activeTheme,
+                    active_frame: activeFrame
+                });
+            }
         }
 
         function applyTheme() {
