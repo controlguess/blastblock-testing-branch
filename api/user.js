@@ -14,8 +14,8 @@ export default async function handler(req, res) {
       return res.status(401).json({ error: 'Missing authorization header' });
     }
 
-    const { sessionId, score, coins } = req.body;
-    if (!sessionId) {
+    const { action, sessionId, game_score, game_streak, coins } = req.body;
+    if (!sessionId && action === 'submit_game') {
       return res.status(400).json({ error: 'Missing game session ID' });
     }
 
@@ -27,39 +27,89 @@ export default async function handler(req, res) {
       return res.status(401).json({ error: 'Unauthorized user' });
     }
 
-    const { data: session, error: sessionError } = await supabase
-      .from('game_sessions')
+    if (action === 'submit_game') {
+      const { data: session, error: sessionError } = await supabase
+        .from('game_sessions')
+        .select('*')
+        .eq('id', sessionId)
+        .eq('user_id', user.id)
+        .single();
+
+      if (sessionError || !session || session.status !== 'active') {
+        return res.status(403).json({ error: 'Invalid or expired game session' });
+      }
+
+      const startTime = new Date(session.started_at).getTime();
+      const elapsedSeconds = (Date.now() - startTime) / 1000;
+      const minExpectedSeconds = Math.max(3, (game_score / 1000) * 10);
+
+      if (elapsedSeconds < minExpectedSeconds) {
+        await supabase.from('game_sessions').update({ status: 'expired' }).eq('id', sessionId);
+        return res.status(400).json({ error: 'Score rejected: Game completed suspiciously fast.' });
+      }
+
+      await supabase
+        .from('game_sessions')
+        .update({ status: 'completed' })
+        .eq('id', sessionId);
+
+      const { data: currentProfile } = await supabase
+        .from('profiles')
+        .select('high_score, highest_streak, coins')
+        .eq('id', user.id)
+        .single();
+
+      const newHighScore = Math.max(currentProfile?.high_score || 0, game_score || 0);
+      const newHighestStreak = Math.max(currentProfile?.highest_streak || 0, game_streak || 0);
+      const newCoins = Math.max(currentProfile?.coins || 0, coins || 0);
+
+      const { data: updatedProfile, error: updateErr } = await supabase
+        .from('profiles')
+        .update({
+          high_score: newHighScore,
+          highest_streak: newHighestStreak,
+          coins: newCoins,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', user.id)
+        .select()
+        .single();
+
+      if (updateErr) throw updateErr;
+
+      return res.status(200).json({ success: true, profile: updatedProfile });
+    }
+
+    const { data: profile, error: profileErr } = await supabase
+      .from('profiles')
       .select('*')
-      .eq('id', sessionId)
-      .eq('user_id', user.id)
+      .eq('id', user.id)
       .single();
 
-    if (sessionError || !session) {
-      return res.status(403).json({ error: 'Invalid or missing game session' });
+    if (profileErr) throw profileErr;
+
+    if (req.body && Object.keys(req.body).length > 0 && action !== 'submit_game') {
+      const { username, avatar_url, active_theme, active_frame, unlocked_items, coins: newCoins } = req.body;
+      const updatePayload = { updated_at: new Date().toISOString() };
+      if (username !== undefined) updatePayload.username = username;
+      if (avatar_url !== undefined) updatePayload.avatar_url = avatar_url;
+      if (active_theme !== undefined) updatePayload.active_theme = active_theme;
+      if (active_frame !== undefined) updatePayload.active_frame = active_frame;
+      if (unlocked_items !== undefined) updatePayload.unlocked_items = unlocked_items;
+      if (newCoins !== undefined) updatePayload.coins = newCoins;
+
+      const { data: updated, error: upErr } = await supabase
+        .from('profiles')
+        .update(updatePayload)
+        .eq('id', user.id)
+        .select()
+        .single();
+
+      if (upErr) throw upErr;
+      return res.status(200).json({ success: true, profile: updated, user });
     }
 
-    if (session.status !== 'active') {
-      return res.status(403).json({ error: 'Game session has already been used or expired' });
-    }
-
-    const startTime = new Date(session.started_at).getTime();
-    const now = Date.now();
-    const elapsedSeconds = (now - startTime) / 1000;
-
-    const minExpectedSeconds = Math.max(3, (score / 1000) * 10); 
-
-    if (elapsedSeconds < minExpectedSeconds) {
-      await supabase.from('game_sessions').update({ status: 'expired' }).eq('id', sessionId);
-      return res.status(400).json({ error: 'Score rejected: Game completed suspiciously fast.' });
-    }
-
-    await supabase
-      .from('game_sessions')
-      .update({ status: 'completed' })
-      .eq('id', sessionId);
-
-
-    return res.status(200).json({ success: true, message: 'Score and coins verified successfully.' });
+    return res.status(200).json({ success: true, profile, user });
   } catch (err) {
     return res.status(500).json({ error: err.message });
   }
