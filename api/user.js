@@ -96,6 +96,53 @@ export default async function handler(req, res) {
         return res.status(200).json({ success: true, profile: updatedProfile });
       }
 
+      if (action === 'buy_item') {
+        const { itemId, itemType } = req.body;
+        const tableName = itemType === 'themes' ? 'shop_themes' : 'shop_frames';
+
+        const [{ data: item, error: itemErr }, { data: profile, error: profErr }] = await Promise.all([
+          supabase.from(tableName).select('id, cost').eq('id', itemId).single(),
+          supabase.from('profiles').select('coins, unlocked_items').eq('id', user.id).single()
+        ]);
+
+        if (itemErr || !item) {
+          return res.status(404).json({ error: 'Item not found' });
+        }
+        if (profErr || !profile) {
+          return res.status(404).json({ error: 'Profile not found' });
+        }
+
+        const unlocked = profile.unlocked_items || ['default', 'frame-none'];
+        if (unlocked.includes(item.id)) {
+          return res.status(400).json({ error: 'Item already owned' });
+        }
+        if (item.cost < 0) {
+          return res.status(403).json({ error: 'Item is offsale' });
+        }
+        if ((profile.coins || 0) < item.cost) {
+          return res.status(400).json({ error: 'Insufficient coins' });
+        }
+
+        const updatedCoins = profile.coins - item.cost;
+        const updatedUnlocked = [...unlocked, item.id];
+        const equipField = itemType === 'themes' ? { active_theme: item.id } : { active_frame: item.id };
+
+        const { data: updatedProfile, error: buyErr } = await supabase
+          .from('profiles')
+          .update({
+            coins: updatedCoins,
+            unlocked_items: updatedUnlocked,
+            ...equipField,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', user.id)
+          .select()
+          .single();
+
+        if (buyErr) throw buyErr;
+        return res.status(200).json({ success: true, profile: updatedProfile });
+      }
+
       const { username, avatar_url, active_theme, active_frame } = req.body || {};
       const { data: currentProfile, error: profileErr } = await supabase
         .from('profiles')
