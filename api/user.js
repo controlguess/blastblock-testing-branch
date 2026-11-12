@@ -1,137 +1,66 @@
 import { createClient } from '@supabase/supabase-js';
 
-const supabase = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_ANON_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY
-);
+const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 export default async function handler(req, res) {
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: 'Method not allowed' });
+  }
+
   try {
-    const origin = req.headers.origin;
-
-    if (/^https:\/\/([a-z0-9-]+\.)?blastblock\.space$/i.test(origin || '')) {
-      res.setHeader('Access-Control-Allow-Origin', origin);
-    }
-    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-    res.setHeader('Access-Control-Allow-Credentials', 'true');
-    res.setHeader('Vary', 'Origin');
-
-    if (req.method === 'OPTIONS') {
-      return res.status(204).end();
-    }
-
-    if (!['GET', 'POST'].includes(req.method)) {
-      return res.status(405).json({ error: 'Method not allowed' });
-    }
-
     const authHeader = req.headers.authorization;
-    const token = authHeader && authHeader.split(' ')[1];
-
-    if (!token) {
-      return res.status(401).json({ error: 'Unauthorized: Missing token' });
+    if (!authHeader) {
+      return res.status(401).json({ error: 'Missing authorization header' });
     }
 
-    const { data: { user }, error: authErr } = await supabase.auth.getUser(token);
-
-    if (authErr || !user) {
-      return res.status(401).json({ error: 'Unauthorized: Invalid token' });
+    const { sessionId, score, coins } = req.body;
+    if (!sessionId) {
+      return res.status(400).json({ error: 'Missing game session ID' });
     }
 
-    if (req.method === 'GET') {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', user.id)
-        .single();
+    const token = authHeader.replace('Bearer ', '');
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-      if (error && error.code !== 'PGRST116') {
-        return res.status(400).json({ error: error.message });
-      }
-
-      return res.status(200).json({
-        success: true,
-        profile: data || {},
-        user
-      });
+    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
+    if (userError || !user) {
+      return res.status(401).json({ error: 'Unauthorized user' });
     }
 
-    if (req.method === 'POST') {
-      const { 
-        username, 
-        avatar_url, 
-        action, 
-        game_score, 
-        game_streak, 
-        coins, 
-        active_theme, 
-        active_frame, 
-        unlocked_items 
-      } = req.body || {};
+    const { data: session, error: sessionError } = await supabase
+      .from('game_sessions')
+      .select('*')
+      .eq('id', sessionId)
+      .eq('user_id', user.id)
+      .single();
 
-      if (action === 'submit_game') {
-        const { data: existingProfile } = await supabase
-          .from('profiles')
-          .select('high_score, highest_streak, coins')
-          .eq('id', user.id)
-          .single();
-
-        const currentHighScore = existingProfile?.high_score || 0;
-        const currentMaxStreak = existingProfile?.highest_streak || 0;
-
-        const updates = {
-          id: user.id,
-          high_score: Math.max(currentHighScore, Number(game_score) || 0),
-          highest_streak: Math.max(currentMaxStreak, Number(game_streak) || 0),
-          updated_at: new Date().toISOString()
-        };
-
-        if (coins !== undefined) updates.coins = Number(coins);
-
-        const { data, error } = await supabase
-          .from('profiles')
-          .upsert(updates)
-          .select()
-          .single();
-
-        if (error) return res.status(400).json({ error: error.message });
-
-        return res.status(200).json({
-          success: true,
-          profile: data
-        });
-      }
-
-      const updates = {
-        id: user.id,
-        updated_at: new Date().toISOString()
-      };
-
-      if (username !== undefined) updates.username = username;
-      if (avatar_url !== undefined) updates.avatar_url = avatar_url;
-      if (coins !== undefined) updates.coins = Number(coins);
-      if (active_theme !== undefined) updates.active_theme = active_theme;
-      if (active_frame !== undefined) updates.active_frame = active_frame;
-      if (unlocked_items !== undefined) updates.unlocked_items = unlocked_items;
-
-      const { data, error } = await supabase
-        .from('profiles')
-        .upsert(updates)
-        .select()
-        .single();
-
-      if (error) {
-        return res.status(400).json({ error: error.message });
-      }
-
-      return res.status(200).json({
-        success: true,
-        profile: data
-      });
+    if (sessionError || !session) {
+      return res.status(403).json({ error: 'Invalid or missing game session' });
     }
 
+    if (session.status !== 'active') {
+      return res.status(403).json({ error: 'Game session has already been used or expired' });
+    }
+
+    const startTime = new Date(session.started_at).getTime();
+    const now = Date.now();
+    const elapsedSeconds = (now - startTime) / 1000;
+
+    const minExpectedSeconds = Math.max(3, (score / 1000) * 10); 
+
+    if (elapsedSeconds < minExpectedSeconds) {
+      await supabase.from('game_sessions').update({ status: 'expired' }).eq('id', sessionId);
+      return res.status(400).json({ error: 'Score rejected: Game completed suspiciously fast.' });
+    }
+
+    await supabase
+      .from('game_sessions')
+      .update({ status: 'completed' })
+      .eq('id', sessionId);
+
+
+    return res.status(200).json({ success: true, message: 'Score and coins verified successfully.' });
   } catch (err) {
-    console.error('API Server Error:', err);
-    return res.status(500).json({ error: err.message || 'Internal server error' });
+    return res.status(500).json({ error: err.message });
   }
 }
