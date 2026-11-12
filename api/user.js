@@ -4,6 +4,20 @@ const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 export default async function handler(req, res) {
+  const origin = req.headers.origin;
+  if (/^https:\/\/([a-z0-9-]+\.)?blastblock\.space$/i.test(origin || '')) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+  } else {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+  }
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  res.setHeader('Vary', 'Origin');
+
+  if (req.method === 'OPTIONS') {
+    return res.status(204).end();
+  }
+
   if (req.method !== 'GET' && req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
@@ -34,7 +48,7 @@ export default async function handler(req, res) {
     }
 
     if (req.method === 'POST') {
-      const { action, sessionId, game_score, game_streak } = req.body || {};
+      const { action, sessionId, game_score, game_streak, itemId, itemType } = req.body || {};
 
       if (action === 'submit_game') {
         if (!sessionId) {
@@ -97,31 +111,19 @@ export default async function handler(req, res) {
       }
 
       if (action === 'buy_item') {
-        const { itemId, itemType } = req.body;
         const tableName = itemType === 'themes' ? 'shop_themes' : 'shop_frames';
-
         const [{ data: item, error: itemErr }, { data: profile, error: profErr }] = await Promise.all([
           supabase.from(tableName).select('id, cost').eq('id', itemId).single(),
           supabase.from('profiles').select('coins, unlocked_items').eq('id', user.id).single()
         ]);
 
-        if (itemErr || !item) {
-          return res.status(404).json({ error: 'Item not found' });
-        }
-        if (profErr || !profile) {
-          return res.status(404).json({ error: 'Profile not found' });
-        }
+        if (itemErr || !item) return res.status(404).json({ error: 'Item not found' });
+        if (profErr || !profile) return res.status(404).json({ error: 'Profile not found' });
 
         const unlocked = profile.unlocked_items || ['default', 'frame-none'];
-        if (unlocked.includes(item.id)) {
-          return res.status(400).json({ error: 'Item already owned' });
-        }
-        if (item.cost < 0) {
-          return res.status(403).json({ error: 'Item is offsale' });
-        }
-        if ((profile.coins || 0) < item.cost) {
-          return res.status(400).json({ error: 'Insufficient coins' });
-        }
+        if (unlocked.includes(item.id)) return res.status(400).json({ error: 'Item already owned' });
+        if (item.cost < 0) return res.status(403).json({ error: 'Item is offsale' });
+        if ((profile.coins || 0) < item.cost) return res.status(400).json({ error: 'Insufficient coins' });
 
         const updatedCoins = profile.coins - item.cost;
         const updatedUnlocked = [...unlocked, item.id];
