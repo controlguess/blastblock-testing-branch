@@ -34,8 +34,8 @@ export default async function handler(req, res) {
     }
 
     if (req.method === 'POST') {
-      const { action, sessionId, game_score, game_streak, coins } = req.body || {};
-      
+      const { action, sessionId, game_score, game_streak } = req.body || {};
+
       if (action === 'submit_game') {
         if (!sessionId) {
           return res.status(400).json({ error: 'Missing game session ID' });
@@ -54,7 +54,9 @@ export default async function handler(req, res) {
 
         const startTime = new Date(session.started_at).getTime();
         const elapsedSeconds = (Date.now() - startTime) / 1000;
-        const minExpectedSeconds = Math.max(3, (game_score / 1000) * 10);
+        const safeScore = Math.max(0, Math.floor(Number(game_score) || 0));
+        const safeStreak = Math.max(0, Math.floor(Number(game_streak) || 0));
+        const minExpectedSeconds = Math.max(3, (safeScore / 1000) * 10);
 
         if (elapsedSeconds < minExpectedSeconds) {
           await supabase.from('game_sessions').update({ status: 'expired' }).eq('id', sessionId);
@@ -72,9 +74,10 @@ export default async function handler(req, res) {
           .eq('id', user.id)
           .single();
 
-        const newHighScore = Math.max(currentProfile?.high_score || 0, game_score || 0);
-        const newHighestStreak = Math.max(currentProfile?.highest_streak || 0, game_streak || 0);
-        const newCoins = Math.max(currentProfile?.coins || 0, coins || 0);
+        const earnedCoins = Math.floor(safeScore / 10);
+        const newHighScore = Math.max(currentProfile?.high_score || 0, safeScore);
+        const newHighestStreak = Math.max(currentProfile?.highest_streak || 0, safeStreak);
+        const newCoins = (currentProfile?.coins || 0) + earnedCoins;
 
         const { data: updatedProfile, error: updateErr } = await supabase
           .from('profiles')
@@ -93,14 +96,73 @@ export default async function handler(req, res) {
         return res.status(200).json({ success: true, profile: updatedProfile });
       }
 
-      const { username, avatar_url, active_theme, active_frame, unlocked_items, coins: newCoins } = req.body || {};
+      if (action === 'buy_item') {
+        const { itemId, itemType } = req.body;
+        const tableName = itemType === 'themes' ? 'shop_themes' : 'shop_frames';
+
+        const [{ data: item, error: itemErr }, { data: profile, error: profErr }] = await Promise.all([
+          supabase.from(tableName).select('id, cost').eq('id', itemId).single(),
+          supabase.from('profiles').select('coins, unlocked_items').eq('id', user.id).single()
+        ]);
+
+        if (itemErr || !item) {
+          return res.status(404).json({ error: 'Item not found' });
+        }
+        if (profErr || !profile) {
+          return res.status(404).json({ error: 'Profile not found' });
+        }
+
+        const unlocked = profile.unlocked_items || ['default', 'frame-none'];
+        if (unlocked.includes(item.id)) {
+          return res.status(400).json({ error: 'Item already owned' });
+        }
+        if (item.cost < 0) {
+          return res.status(403).json({ error: 'Item is offsale' });
+        }
+        if ((profile.coins || 0) < item.cost) {
+          return res.status(400).json({ error: 'Insufficient coins' });
+        }
+
+        const updatedCoins = profile.coins - item.cost;
+        const updatedUnlocked = [...unlocked, item.id];
+        const equipField = itemType === 'themes' ? { active_theme: item.id } : { active_frame: item.id };
+
+        const { data: updatedProfile, error: buyErr } = await supabase
+          .from('profiles')
+          .update({
+            coins: updatedCoins,
+            unlocked_items: updatedUnlocked,
+            ...equipField,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', user.id)
+          .select()
+          .single();
+
+        if (buyErr) throw buyErr;
+        return res.status(200).json({ success: true, profile: updatedProfile });
+      }
+
+      const { username, avatar_url, active_theme, active_frame } = req.body || {};
+      const { data: currentProfile, error: profileErr } = await supabase
+        .from('profiles')
+        .select('unlocked_items')
+        .eq('id', user.id)
+        .single();
+
+      if (profileErr) throw profileErr;
+
+      const unlocked = currentProfile.unlocked_items || ['default', 'frame-none'];
       const updatePayload = { updated_at: new Date().toISOString() };
+
       if (username !== undefined) updatePayload.username = username;
       if (avatar_url !== undefined) updatePayload.avatar_url = avatar_url;
-      if (active_theme !== undefined) updatePayload.active_theme = active_theme;
-      if (active_frame !== undefined) updatePayload.active_frame = active_frame;
-      if (unlocked_items !== undefined) updatePayload.unlocked_items = unlocked_items;
-      if (newCoins !== undefined) updatePayload.coins = newCoins;
+      if (active_theme !== undefined && unlocked.includes(active_theme)) {
+        updatePayload.active_theme = active_theme;
+      }
+      if (active_frame !== undefined && unlocked.includes(active_frame)) {
+        updatePayload.active_frame = active_frame;
+      }
 
       const { data: updated, error: upErr } = await supabase
         .from('profiles')
@@ -112,7 +174,6 @@ export default async function handler(req, res) {
       if (upErr) throw upErr;
       return res.status(200).json({ success: true, profile: updated, user });
     }
-
   } catch (err) {
     return res.status(500).json({ error: err.message });
   }
