@@ -17,7 +17,6 @@ export default async function handler(req, res) {
     const token = authHeader.replace('Bearer ', '');
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Verify user identity via token
     const { data: { user }, error: userError } = await supabase.auth.getUser(token);
     if (userError || !user) {
       return res.status(401).json({ error: 'Unauthorized user' });
